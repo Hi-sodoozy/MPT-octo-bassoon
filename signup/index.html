@@ -85,7 +85,14 @@
         const dash = typeof window.ktrainPaths !== 'undefined' ? window.ktrainPaths.dashboard() : '../dashboard/';
         window.location.href = dash;
       } catch (x) {
-        err.textContent = x.message || 'Sign up failed.';
+        const msg = x?.message || 'Sign up failed.';
+        if (/user already registered/i.test(msg)) {
+          err.textContent = 'This email is already registered. Please log in instead.';
+        } else if (/password/i.test(msg)) {
+          err.textContent = msg;
+        } else {
+          err.textContent = 'Sign up failed. Please try again, or check your email for a confirmation link.';
+        }
       }
     });
 
