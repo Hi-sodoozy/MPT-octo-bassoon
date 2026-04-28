@@ -53,49 +53,11 @@
     <p class="link"><a href="../signup/">Don’t have an account? Sign up</a></p>
   </main>
 
-  <script src="../js/site-paths.js?v=20260428e"></script>
+  <script src="../js/site-paths.js?v=20260428f"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="../js/supabase-config.js?v=20260428e"></script>
-  <script src="../js/auth.js?v=20260428e"></script>
+  <script src="../js/supabase-config.js?v=20260428f"></script>
+  <script src="../js/auth.js?v=20260428f"></script>
   <script>
-    async function directRestLogin(email, password) {
-      const base = (window.SUPABASE_URL || '').replace(/\/$/, '');
-      const key = window.SUPABASE_ANON_KEY || '';
-      if (!base || !key) throw new Error('Supabase config missing.');
-      const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), 12000);
-      try {
-        const res = await fetch(base + '/auth/v1/token?grant_type=password', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            apikey: key
-          },
-          body: JSON.stringify({ email, password }),
-          signal: controller.signal
-        });
-        const payload = await res.json().catch(() => ({}));
-        if (!res.ok) {
-          throw new Error(payload?.error_description || payload?.msg || payload?.error || 'Log in failed.');
-        }
-        if (!payload?.access_token || !payload?.refresh_token || !window.ktrainAuth?.client?.auth?.setSession) {
-          throw new Error('Log in failed: invalid auth response.');
-        }
-        await window.ktrainAuth.client.auth.setSession({
-          access_token: payload.access_token,
-          refresh_token: payload.refresh_token
-        });
-        return payload;
-      } catch (e) {
-        if (e?.name === 'AbortError') {
-          throw new Error('Could not reach login service. Please check your connection and try again.');
-        }
-        throw e;
-      } finally {
-        clearTimeout(timer);
-      }
-    }
-
     document.getElementById('loginForm').addEventListener('submit', async (e) => {
       e.preventDefault();
       const err = document.getElementById('loginError');
@@ -112,13 +74,14 @@
       let redirect = params.get('redirect') || fallback;
       try {
         if (!window.ktrainAuth) throw new Error('Supabase not configured. Add your URL and anon key in js/supabase-config.js');
-        const normalizedEmail = String(email || '').trim().toLowerCase();
-        await directRestLogin(normalizedEmail, password);
+        await window.ktrainAuth.signIn(String(email || '').trim().toLowerCase(), password);
         if (/\/admin\/?$/i.test(redirect)) redirect = fallback;
         window.location.href = redirect;
       } catch (x) {
         const msg = x?.message || 'Log in failed.';
-        if (/failed to fetch|network error reaching supabase/i.test(msg)) {
+        if (/lock:sb-.*-auth-token|stole it/i.test(msg)) {
+          err.textContent = 'Your session was busy. Please click Log in once and wait a moment.';
+        } else if (/failed to fetch|network error reaching supabase/i.test(msg)) {
           err.textContent = 'Could not contact Supabase. Check internet/VPN/ad-blocker and ensure the site is opened via http(s), not file://.';
         } else if (/invalid login credentials/i.test(msg)) {
           err.textContent = 'Incorrect email or password.';
@@ -146,44 +109,20 @@
       try {
         const base = (window.SUPABASE_URL || '').replace(/\/$/, '');
         const key = window.SUPABASE_ANON_KEY || '';
-        if (!base) {
-          lines.push('FAIL: SUPABASE_URL missing');
-          failed = true;
-        } else {
-          lines.push('OK: SUPABASE_URL present');
-        }
-        if (!key) {
-          lines.push('FAIL: SUPABASE_ANON_KEY missing');
-          failed = true;
-        } else {
-          lines.push('OK: SUPABASE_ANON_KEY present');
-        }
-
+        if (!base) { lines.push('FAIL: SUPABASE_URL missing'); failed = true; } else { lines.push('OK: SUPABASE_URL present'); }
+        if (!key) { lines.push('FAIL: SUPABASE_ANON_KEY missing'); failed = true; } else { lines.push('OK: SUPABASE_ANON_KEY present'); }
         if (base && key) {
-          const settingsRes = await fetch(base + '/auth/v1/settings', {
-            method: 'GET',
-            headers: { apikey: key }
-          });
-          if (settingsRes.ok) {
-            lines.push('OK: /auth/v1/settings reachable (' + settingsRes.status + ')');
-          } else {
-            lines.push('FAIL: /auth/v1/settings returned ' + settingsRes.status);
-            failed = true;
-          }
-
+          const settingsRes = await fetch(base + '/auth/v1/settings', { method: 'GET', headers: { apikey: key } });
+          if (settingsRes.ok) lines.push('OK: /auth/v1/settings reachable (' + settingsRes.status + ')');
+          else { lines.push('FAIL: /auth/v1/settings returned ' + settingsRes.status); failed = true; }
           const tokenRes = await fetch(base + '/auth/v1/token?grant_type=password', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', apikey: key },
             body: JSON.stringify({ email: 'invalid@example.com', password: 'invalid-password' })
           });
-          if (tokenRes.status === 400 || tokenRes.status === 401) {
-            lines.push('OK: /auth/v1/token endpoint responding (' + tokenRes.status + ')');
-          } else if (tokenRes.ok) {
-            lines.push('WARN: /auth/v1/token returned success with test credentials');
-          } else {
-            lines.push('FAIL: /auth/v1/token returned ' + tokenRes.status);
-            failed = true;
-          }
+          if (tokenRes.status === 400 || tokenRes.status === 401) lines.push('OK: /auth/v1/token endpoint responding (' + tokenRes.status + ')');
+          else if (tokenRes.ok) lines.push('WARN: /auth/v1/token returned success with test credentials');
+          else { lines.push('FAIL: /auth/v1/token returned ' + tokenRes.status); failed = true; }
         }
       } catch (e) {
         lines.push('FAIL: Network/request error: ' + (e?.message || String(e)));

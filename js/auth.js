@@ -32,9 +32,7 @@
 
   function setupFooterLogout(session) {
     const rows = document.querySelectorAll('.footer-account-row');
-    rows.forEach((row) => {
-      row.hidden = !session?.user;
-    });
+    rows.forEach((row) => { row.hidden = !session?.user; });
     document.querySelectorAll('.js-footer-logout').forEach((btn) => {
       if (btn.dataset.boundLogout === '1') return;
       btn.dataset.boundLogout = '1';
@@ -109,7 +107,6 @@
           role: 'user'
         }, { onConflict: 'id' });
         if (upsertError) {
-          // Profile is normally created by DB trigger; do not fail signup on profile write.
           console.warn('Profile upsert skipped:', upsertError.message);
         }
       }

@@ -11,9 +11,6 @@
     .auth-form .form-row { margin-bottom: 1rem; }
     .auth-form label { display: block; font-weight: 600; margin-bottom: 0.35rem; }
     .auth-form input { width: 100%; padding: 0.6rem 0.75rem; border: 1px solid var(--border); border-radius: var(--radius); font-size: 1rem; }
-    .password-wrap { position: relative; }
-    .password-wrap input { padding-right: 2.5rem; }
-    .password-toggle { position: absolute; right: 0.45rem; top: 50%; transform: translateY(-50%); border: 0; background: transparent; cursor: pointer; font-size: 1rem; line-height: 1; }
     .auth-form .btn { width: 100%; margin-top: 0.5rem; }
     .auth-form .error { color: #c53030; font-size: 0.9rem; margin-top: 0.5rem; }
     .auth-form .link { margin-top: 1rem; text-align: center; }
@@ -48,10 +45,7 @@
       </div>
       <div class="form-row">
         <label for="password">Password</label>
-        <div class="password-wrap">
-          <input type="password" id="password" name="password" required autocomplete="new-password" minlength="6" />
-          <button type="button" class="password-toggle" data-target="password" aria-label="Show password">👁</button>
-        </div>
+        <input type="password" id="password" name="password" required autocomplete="new-password" minlength="6" />
       </div>
       <div id="signupError" class="error" role="alert"></div>
       <button type="submit" class="btn">Sign up</button>
@@ -85,31 +79,8 @@
         const dash = typeof window.ktrainPaths !== 'undefined' ? window.ktrainPaths.dashboard() : '../dashboard/';
         window.location.href = dash;
       } catch (x) {
-        const msg = x?.message || 'Sign up failed.';
-        if (/user already registered/i.test(msg)) {
-          err.textContent = 'This email is already registered. Please log in instead.';
-        } else if (/password/i.test(msg)) {
-          err.textContent = msg;
-        } else if (/database error saving new user/i.test(msg)) {
-          err.textContent = 'Sign up failed: database trigger/schema issue. In Supabase, run the latest schema + open-access migration, then retry.';
-        } else if (/invalid email/i.test(msg)) {
-          err.textContent = 'Please enter a valid email address.';
-        } else if (/failed to fetch|network error reaching supabase/i.test(msg)) {
-          err.textContent = 'Could not contact Supabase. Check internet/VPN/ad-blocker and ensure the site is opened via http(s), not file://.';
-        } else {
-          err.textContent = 'Sign up failed: ' + msg;
-        }
+        err.textContent = x.message || 'Sign up failed.';
       }
-    });
-
-    document.querySelectorAll('.password-toggle').forEach((btn) => {
-      btn.addEventListener('click', () => {
-        const input = document.getElementById(btn.getAttribute('data-target'));
-        if (!input) return;
-        const isVisible = input.type === 'text';
-        input.type = isVisible ? 'password' : 'text';
-        btn.setAttribute('aria-label', isVisible ? 'Show password' : 'Hide password');
-      });
     });
   </script>
 </body>

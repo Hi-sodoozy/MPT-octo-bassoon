@@ -41,6 +41,81 @@
     <p class="link"><a href="../login/">Back to log in</a></p>
   </main>
 
+  <script src="../js/site-paths.js?v=20260428f"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="../js/supabase-config.js?v=20260428f"></script>
+  <script src="../js/auth.js?v=20260428f"></script>
+  <script>
+    document.getElementById('forgotForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const err = document.getElementById('forgotError');
+      const ok = document.getElementById('forgotOk');
+      const btn = document.querySelector('#forgotForm button[type="submit"]');
+      err.textContent = '';
+      ok.textContent = '';
+      btn.disabled = true;
+      btn.textContent = 'Sending...';
+      try {
+        const email = document.getElementById('email').value.trim().toLowerCase();
+        const client = window.ktrainSupabase || window.ktrainAuth?.client;
+        if (!client) throw new Error('Supabase not configured.');
+        const redirectTo = window.location.origin + '/reset-password/';
+        const { error } = await client.auth.resetPasswordForEmail(email, { redirectTo });
+        if (error) throw error;
+        ok.textContent = 'If that email exists, a reset link has been sent.';
+      } catch (x) {
+        err.textContent = x?.message || 'Could not send reset email.';
+      } finally {
+        btn.disabled = false;
+        btn.textContent = 'Send reset link';
+      }
+    });
+  </script>
+</body>
+</html>
+<!DOCTYPE html>
+<html lang="en" data-site-root="..">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Reset password – My Psych Training</title>
+  <link rel="stylesheet" href="../styles-light.css" />
+  <style>
+    .auth-page { max-width: 420px; margin: 4rem auto; padding: 0 1.5rem; }
+    .auth-page h1 { font-size: 1.5rem; margin-bottom: 1rem; }
+    .auth-page .lead { color: var(--ink-muted); font-size: 0.95rem; margin-bottom: 1rem; }
+    .auth-form .form-row { margin-bottom: 1rem; }
+    .auth-form label { display: block; font-weight: 600; margin-bottom: 0.35rem; }
+    .auth-form input { width: 100%; padding: 0.6rem 0.75rem; border: 1px solid var(--border); border-radius: var(--radius); font-size: 1rem; }
+    .auth-form .btn { width: 100%; margin-top: 0.5rem; }
+    .auth-form .error { color: #c53030; font-size: 0.9rem; margin-top: 0.5rem; }
+    .auth-form .ok { color: #2f855a; font-size: 0.9rem; margin-top: 0.5rem; }
+    .auth-form .link { margin-top: 1rem; text-align: center; }
+  </style>
+</head>
+<body>
+  <header class="site-header">
+    <div class="site-header-inner">
+      <a href="../" class="brand"><div class="brand-mark"></div><span>My Psych Training</span></a>
+      <nav class="main-nav"><ul><li><a href="../login/" class="nav-cta">Back to log in</a></li></ul></nav>
+    </div>
+  </header>
+
+  <main class="auth-page">
+    <h1>Reset your password</h1>
+    <p class="lead">Enter your account email and we will send a password reset link.</p>
+    <form class="auth-form" id="forgotForm">
+      <div class="form-row">
+        <label for="email">Email</label>
+        <input type="email" id="email" name="email" required autocomplete="email" />
+      </div>
+      <div id="forgotError" class="error" role="alert"></div>
+      <div id="forgotOk" class="ok" role="status"></div>
+      <button type="submit" class="btn">Send reset link</button>
+    </form>
+    <p class="link"><a href="../login/">Back to log in</a></p>
+  </main>
+
   <script src="../js/site-paths.js?v=20260428c"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="../js/supabase-config.js?v=20260428c"></script>

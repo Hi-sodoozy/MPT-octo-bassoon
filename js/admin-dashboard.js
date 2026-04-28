@@ -5,6 +5,7 @@
 
   let currentUserId = null;
   let viewerIsSuper = false;
+  let allProfiles = [];
 
   function escapeHtml(s) {
     const div = document.createElement('div');
@@ -12,10 +13,8 @@
     return div.innerHTML;
   }
 
-  let allProfiles = [];
-
   function hasAdminAccess(p) {
-    return !!p?.is_super_admin || p?.role === 'admin';
+    return !!p?.is_super_admin || (p?.role === 'admin' && p?.admin_access_enabled === true);
   }
 
   function renderAdminList() {
@@ -35,11 +34,7 @@
               <td>${escapeHtml(p.full_name || '—')}</td>
               <td>${escapeHtml(p.email || '—')}</td>
               <td>${p.is_super_admin ? 'Super Admin' : 'Admin'}</td>
-              <td>
-                ${(!viewerIsSuper || p.id === currentUserId)
-                  ? '<span>Current user</span>'
-                  : `<button type="button" class="btn btn-secondary btn-small js-demote-admin" data-id="${escapeHtml(p.id)}">Demote</button>`}
-              </td>
+              <td>${(!viewerIsSuper || p.id === currentUserId) ? '<span>Current user</span>' : `<button type="button" class="btn btn-secondary btn-small js-demote-admin" data-id="${escapeHtml(p.id)}">Demote</button>`}</td>
             </tr>
           `).join('')}
         </tbody>
@@ -52,9 +47,7 @@
     const query = (document.getElementById('adminUserSearch')?.value || '').trim().toLowerCase();
     if (!root) return;
     let rows = allProfiles.slice();
-    if (query) {
-      rows = rows.filter((p) => (p.full_name || '').toLowerCase().includes(query) || (p.email || '').toLowerCase().includes(query));
-    }
+    if (query) rows = rows.filter((p) => (p.full_name || '').toLowerCase().includes(query) || (p.email || '').toLowerCase().includes(query));
     if (!rows.length) {
       root.innerHTML = '<p class="admin-placeholder">No students/admins yet.</p>';
       return;
@@ -69,14 +62,14 @@
               <td>${escapeHtml(p.email || '—')}</td>
               <td>${p.is_super_admin ? 'Super Admin' : (hasAdminAccess(p) ? 'Admin' : 'Student')}</td>
               <td>
-                ${!viewerIsSuper
-                  ? '<span>Restricted</span>'
-                  : `<select class="course-admin-input js-role-target" data-id="${escapeHtml(p.id)}">
-                      <option value="user"${(!hasAdminAccess(p)) ? ' selected' : ''}>Student</option>
-                      <option value="admin"${(p.role === 'admin' && !p.is_super_admin) ? ' selected' : ''}>Admin</option>
-                      <option value="super"${p.is_super_admin ? ' selected' : ''}>Super Admin</option>
-                    </select>
-                    <button type="button" class="btn btn-secondary btn-small js-apply-role" data-id="${escapeHtml(p.id)}">Apply</button>`}
+                ${!viewerIsSuper ? '<span>Restricted</span>' : `
+                  <select class="course-admin-input js-role-target" data-id="${escapeHtml(p.id)}">
+                    <option value="user"${!hasAdminAccess(p) ? ' selected' : ''}>Student</option>
+                    <option value="admin"${(p.role === 'admin' && !p.is_super_admin) ? ' selected' : ''}>Admin</option>
+                    <option value="super"${p.is_super_admin ? ' selected' : ''}>Super Admin</option>
+                  </select>
+                  <button type="button" class="btn btn-secondary btn-small js-apply-role" data-id="${escapeHtml(p.id)}">Apply</button>
+                `}
               </td>
             </tr>
           `).join('')}
@@ -98,10 +91,7 @@
   async function loadData() {
     const client = getClient();
     if (!client) throw new Error('Supabase client is not available.');
-    const { data, error } = await client
-      .from('profiles')
-      .select('id, full_name, email, role, is_super_admin, admin_access_enabled')
-      .order('full_name');
+    const { data, error } = await client.from('profiles').select('id, full_name, email, role, is_super_admin, admin_access_enabled').order('full_name');
     if (error) throw error;
     allProfiles = data || [];
     renderAdminList();
@@ -115,8 +105,7 @@
     if (!client) return;
     const { data: { user } } = await client.auth.getUser();
     if (!user) return;
-
-    currentUserId = user?.id || null;
+    currentUserId = user.id;
     const viewer = await client.from('profiles').select('is_super_admin').eq('id', currentUserId).maybeSingle();
     viewerIsSuper = !!viewer?.data?.is_super_admin;
     if (!viewerIsSuper) return;
@@ -130,11 +119,9 @@
       const errHtml = '<p class="course-admin-error" role="alert">Could not load user list: ' + escapeHtml(msg) + '</p>';
       if (listRoot) listRoot.innerHTML = errHtml;
       if (dirRoot) dirRoot.innerHTML = errHtml;
-      console.error(err);
     }
 
     document.getElementById('adminUserSearch')?.addEventListener('input', renderUserDirectory);
-
     document.getElementById('adminUserDirectoryRoot')?.addEventListener('click', async (e) => {
       const btn = e.target.closest('.js-apply-role');
       if (!btn || !viewerIsSuper) return;
@@ -142,8 +129,7 @@
       try {
         const row = btn.closest('tr');
         const select = row?.querySelector('.js-role-target');
-        const targetRole = select?.value || 'user';
-        await setRoleById(btn.getAttribute('data-id'), targetRole);
+        await setRoleById(btn.getAttribute('data-id'), select?.value || 'user');
       } catch (err) {
         alert(err.message || 'Failed to update role.');
       } finally {
