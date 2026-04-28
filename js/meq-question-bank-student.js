@@ -131,8 +131,14 @@
             <div class="qb-student-meta">
               <h3 class="qb-student-num">Question ${idx + 1}</h3>
               ${subtleTag ? `<span class="qb-student-tag-inline">${escapeHtml(subtleTag)}</span>` : ''}
+              ${done ? '<span class="qb-student-tag-inline">Answered</span>' : ''}
             </div>
             <div class="qb-student-stem">${escapeHtml(stem).replace(/\n/g, '<br />')}</div>
+            ${(q.tags && q.tags.length) ? `
+              <p class="qb-student-tags">
+                ${q.tags.map((t) => `<span class="qb-tag">${escapeHtml(t)}</span>`).join('')}
+              </p>
+            ` : ''}
             <button type="button" class="btn btn-small js-qb-choose">${done ? 'View or edit your answer' : 'Choose this question'}</button>
           </article>
         `;
@@ -196,6 +202,12 @@
         <label class="qb-admin-label">Your response</label>
         <textarea class="qb-admin-textarea qb-response" rows="10" placeholder="Write your answer here…">${escapeHtml(savedText || '')}</textarea>
         <button type="button" class="btn btn-small js-qb-save-response">Save response</button>
+        ${question.model_answer ? `
+          <details class="qb-model-details">
+            <summary>Show model answer</summary>
+            <div class="qb-model-body">${escapeHtml(question.model_answer).replace(/\n/g, '<br />')}</div>
+          </details>
+        ` : ''}
       </article>
     `;
 
@@ -251,6 +263,12 @@
             <label class="qb-admin-label">Answer</label>
             <textarea class="qb-admin-textarea qb-practice-answer" rows="8">${escapeHtml(byQ[q.id] || '')}</textarea>
             <button type="button" class="btn btn-small js-qb-practice-save">Save</button>
+            ${q.model_answer ? `
+              <details class="qb-model-details">
+                <summary>Show model answer</summary>
+                <div class="qb-model-body">${escapeHtml(q.model_answer).replace(/\n/g, '<br />')}</div>
+              </details>
+            ` : ''}
           </article>
         `).join('')}
       </div>

@@ -33,6 +33,15 @@
     setLinkAccess(['signup/', '../signup/', '../../signup/'], !isLoggedIn);
     setLinkAccess(['admin/', '../admin/', '../../admin/'], hasAdminAccess);
     setLinkAccess(['meq-course/', '../meq-course/', '../../meq-course/', 'course-admin/', '../course-admin/'], isSuper);
+
+    // Safety net: hide any admin links from non-admin users even if markup varies.
+    document.querySelectorAll('a[href]').forEach((a) => {
+      const href = (a.getAttribute('href') || '').toLowerCase();
+      const isAdminLink = href === 'admin/' || href === '../admin/' || href === '../../admin/' || href.endsWith('/admin/');
+      if (!isAdminLink) return;
+      const host = a.closest('li') || a;
+      host.style.display = hasAdminAccess ? '' : 'none';
+    });
   }
 
   function setupFooterLogout(session) {
