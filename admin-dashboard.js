@@ -115,11 +115,28 @@
   }
 
   async function init() {
-    const ok = await window.ktrainAdminGuard?.init();
-    if (!ok) return;
     const client = getClient();
     if (!client) return;
     const { data: { user } } = await client.auth.getUser();
+    if (!user) {
+      const loginBase = typeof window.ktrainPaths !== 'undefined' ? window.ktrainPaths.login() : 'login/';
+      const target = window.location.pathname.endsWith('/') ? window.location.pathname : window.location.pathname + '/';
+      window.location.href = loginBase + '?redirect=' + encodeURIComponent(target);
+      return;
+    }
+
+    // Prefer shared guard, but unhide here as fallback in case guard script failed to load.
+    if (window.ktrainAdminGuard?.init) {
+      const ok = await window.ktrainAdminGuard.init();
+      if (!ok) return;
+    } else {
+      const root = document.getElementById('adminGuardRoot');
+      if (root) {
+        root.hidden = false;
+        root.removeAttribute('hidden');
+      }
+    }
+
     currentUserId = user?.id || null;
 
     try {
