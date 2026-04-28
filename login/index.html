@@ -108,22 +108,14 @@
       let redirect = params.get('redirect') || fallback;
       try {
         if (!window.ktrainAuth) throw new Error('Supabase not configured. Add your URL and anon key in js/supabase-config.js');
-        // Prefer direct REST auth to avoid browser SDK hang in this environment.
+        // Use direct REST auth (most reliable path for this deployment).
         await withTimeout(
           directRestLogin(String(email || '').trim().toLowerCase(), password),
-          12000,
+          45000,
           'Login request timed out. Please try again.'
         );
-
-        // Only fetch profile when we need to decide admin-route permission.
-        if (/\/admin\/?$/i.test(redirect)) {
-          const session = await withTimeout(window.ktrainAuth.getSession(), 8000, 'Session fetch timed out. Please try again.');
-          const profile = session?.user?.id
-            ? await withTimeout(window.ktrainAuth.getProfile(session.user.id), 8000, 'Profile check timed out. Please try again.')
-            : null;
-          const isSuper = !!profile?.is_super_admin;
-          if (!isSuper) redirect = fallback;
-        }
+        // Force non-staff login to student dashboard to avoid admin profile lookup stalls.
+        if (/\/admin\/?$/i.test(redirect)) redirect = fallback;
         window.location.href = redirect;
       } catch (x) {
         const msg = x?.message || 'Log in failed.';
@@ -131,6 +123,8 @@
           err.textContent = 'Could not contact Supabase. Check internet/VPN/ad-blocker and ensure the site is opened via http(s), not file://.';
         } else if (/invalid login credentials/i.test(msg)) {
           err.textContent = 'Incorrect email or password.';
+        } else if (/invalid auth response/i.test(msg)) {
+          err.textContent = 'Login failed while saving session. Please disable strict privacy blockers and try again.';
         } else if (/email.*confirm|confirm.*email|no active session/i.test(msg)) {
           err.textContent = 'Please confirm your email address, then log in again.';
         } else {
