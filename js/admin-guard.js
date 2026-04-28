@@ -33,7 +33,7 @@
       const isSuper = !!profile?.is_super_admin;
       const hasAdminAccess = window.ktrainAuth?.hasAdminAccess
         ? window.ktrainAuth.hasAdminAccess(profile)
-        : (isSuper || (profile?.role === 'admin' && profile?.admin_access_enabled === true));
+        : (isSuper || profile?.role === 'admin');
       if ((requireSuperOnly && !isSuper) || (!requireSuperOnly && !hasAdminAccess)) {
         document.body.innerHTML = '<p>Access denied.</p><a href="' + redirectDenied + '">Back to dashboard</a>';
         return false;

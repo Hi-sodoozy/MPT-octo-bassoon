@@ -78,7 +78,7 @@
     },
 
     hasAdminAccess(profile) {
-      return this.isSuperAdmin(profile) || (profile?.role === 'admin' && profile?.admin_access_enabled === true);
+      return this.isSuperAdmin(profile) || profile?.role === 'admin';
     },
 
     async updateProfile(userId, fields) {

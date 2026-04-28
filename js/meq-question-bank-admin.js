@@ -31,7 +31,7 @@
   async function load() {
     const root = document.getElementById(rootId);
     if (!client || !root) return;
-    if (!await window.ktrainAdminGuard?.init()) return;
+    if (!await window.ktrainAdminGuard?.init({ superOnly: false })) return;
 
     const { data, error } = await client.from('meq_questions').select('*').order('sort_order', { ascending: true });
     if (error) {
