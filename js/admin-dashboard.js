@@ -102,6 +102,8 @@
   }
 
   async function loadData() {
+    const client = getClient();
+    if (!client) throw new Error('Supabase client is not available.');
     const { data, error } = await client
       .from('profiles')
       .select('id, full_name, email, role, admin_access_enabled, is_super_admin')
@@ -113,10 +115,10 @@
   }
 
   async function init() {
-    const client = getClient();
-    if (!client) return;
     const ok = await window.ktrainAdminGuard?.init();
     if (!ok) return;
+    const client = getClient();
+    if (!client) return;
     const { data: { user } } = await client.auth.getUser();
     currentUserId = user?.id || null;
 
