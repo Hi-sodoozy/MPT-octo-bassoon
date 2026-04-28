@@ -26,6 +26,10 @@
 
   function applyAccessVisibility(profile) {
     const isSuper = !!profile?.is_super_admin;
+    const isLoggedIn = !!profile;
+    // Hide auth entry links once signed in.
+    setLinkAccess(['login/', '../login/', '../../login/'], !isLoggedIn);
+    setLinkAccess(['signup/', '../signup/', '../../signup/'], !isLoggedIn);
     setLinkAccess(['admin/', '../admin/', '../../admin/'], isSuper);
     setLinkAccess(['meq-course/', '../meq-course/', '../../meq-course/', 'course-admin/', '../course-admin/'], isSuper);
   }
