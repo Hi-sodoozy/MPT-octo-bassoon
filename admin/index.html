@@ -101,5 +101,83 @@
   <script src="../js/auth.js?v=20260428a"></script>
   <script src="../js/admin-guard.js?v=20260428a"></script>
   <script src="../js/admin-dashboard.js?v=20260428a"></script>
+  <script>
+    (function () {
+      function escapeHtml(s) {
+        var div = document.createElement('div');
+        div.textContent = s == null ? '' : String(s);
+        return div.innerHTML;
+      }
+
+      function renderFallbackRows(rows, currentUserId) {
+        var adminRoot = document.getElementById('adminAccountListRoot');
+        var dirRoot = document.getElementById('adminUserDirectoryRoot');
+        if (!adminRoot || !dirRoot) return;
+
+        var admins = rows.filter(function (p) { return p && p.role === 'admin'; });
+        if (!admins.length) {
+          adminRoot.innerHTML = '<p class="admin-placeholder">No admins found.</p>';
+        } else {
+          adminRoot.innerHTML = '<table class="admin-table"><thead><tr><th>Name</th><th>Email</th><th>Type</th><th>Action</th></tr></thead><tbody>' +
+            admins.map(function (p) {
+              return '<tr><td>' + escapeHtml(p.full_name || '—') + '</td><td>' + escapeHtml(p.email || '—') + '</td><td>Admin</td><td>' +
+                (p.id === currentUserId ? '<span>Current user</span>' : '<span>Use main loader for actions</span>') +
+                '</td></tr>';
+            }).join('') +
+            '</tbody></table>';
+        }
+
+        dirRoot.innerHTML = '<table class="admin-table"><thead><tr><th>Name</th><th>Email</th><th>Current role</th></tr></thead><tbody>' +
+          rows.map(function (p) {
+            return '<tr><td>' + escapeHtml(p.full_name || '—') + '</td><td>' + escapeHtml(p.email || '—') + '</td><td>' + (p.role === 'admin' ? 'Admin' : 'Student') + '</td></tr>';
+          }).join('') +
+          '</tbody></table>';
+      }
+
+      async function runFallbackIfStillLoading() {
+        var adminRoot = document.getElementById('adminAccountListRoot');
+        var dirRoot = document.getElementById('adminUserDirectoryRoot');
+        var guardRoot = document.getElementById('adminGuardRoot');
+        if (!adminRoot || !dirRoot) return;
+
+        var stillLoading = /Loading/.test(adminRoot.textContent || '') || /Loading/.test(dirRoot.textContent || '');
+        if (!stillLoading) return;
+
+        if (guardRoot) {
+          guardRoot.hidden = false;
+          guardRoot.removeAttribute('hidden');
+        }
+
+        var client = window.ktrainSupabase || window.ktrainAuth?.client;
+        if (!client) {
+          var msg = '<p class="course-admin-error" role="alert">Could not load user list: Supabase client unavailable.</p>';
+          adminRoot.innerHTML = msg;
+          dirRoot.innerHTML = msg;
+          return;
+        }
+
+        try {
+          var userRes = await client.auth.getUser();
+          var user = userRes && userRes.data ? userRes.data.user : null;
+          if (!user) {
+            var loginBase = (typeof window.ktrainPaths !== 'undefined' && window.ktrainPaths.login) ? window.ktrainPaths.login() : 'login/';
+            var target = window.location.pathname.endsWith('/') ? window.location.pathname : (window.location.pathname + '/');
+            window.location.href = loginBase + '?redirect=' + encodeURIComponent(target);
+            return;
+          }
+
+          var res = await client.from('profiles').select('id, full_name, email, role').order('full_name');
+          if (res.error) throw res.error;
+          renderFallbackRows(res.data || [], user.id);
+        } catch (err) {
+          var msg = '<p class="course-admin-error" role="alert">Could not load user list: ' + escapeHtml(err && err.message ? err.message : String(err)) + '</p>';
+          adminRoot.innerHTML = msg;
+          dirRoot.innerHTML = msg;
+        }
+      }
+
+      window.setTimeout(runFallbackIfStillLoading, 1500);
+    })();
+  </script>
 </body>
 </html>
