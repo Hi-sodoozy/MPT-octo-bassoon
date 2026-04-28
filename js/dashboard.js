@@ -13,6 +13,8 @@
   let weekContent = [];
   let todoTemplates = [];
   let completions = {};
+  let weekTaskCompletions = {};
+  let currentUserId = null;
 
   function getCurrentWeek() {
     if (!enrollment?.start_date) return 1;
@@ -47,6 +49,8 @@
       window.location.href = loginBase + '?redirect=' + encodeURIComponent(back);
       return;
     }
+    currentUserId = user.id;
+    loadWeekTaskCompletions();
 
     const [profileRes, enrollRes, contentRes, todoRes, compRes] = await Promise.all([
       client.from('profiles').select('*').eq('id', user.id).single(),
@@ -63,6 +67,34 @@
     (compRes.data || []).forEach(r => { completions[r.todo_template_id] = true; });
 
     render();
+  }
+
+  function weekTaskStorageKey() {
+    return `mypsychtraining:week-content-completions:${COURSE_ID}:${currentUserId || 'anon'}`;
+  }
+
+  function loadWeekTaskCompletions() {
+    weekTaskCompletions = {};
+    try {
+      const raw = localStorage.getItem(weekTaskStorageKey());
+      if (!raw) return;
+      const parsed = JSON.parse(raw);
+      if (parsed && typeof parsed === 'object') weekTaskCompletions = parsed;
+    } catch (_) {
+      weekTaskCompletions = {};
+    }
+  }
+
+  function saveWeekTaskCompletions() {
+    try {
+      localStorage.setItem(weekTaskStorageKey(), JSON.stringify(weekTaskCompletions));
+    } catch (_) {
+      // Ignore storage failures (private mode/quota); UI will still work in-memory.
+    }
+  }
+
+  function isWeekContentDone(contentId) {
+    return !!weekTaskCompletions[String(contentId)];
   }
 
   function render() {
@@ -104,6 +136,9 @@
         const unlocked = w <= currentWeek;
         const isCurrent = w === currentWeek;
         const content = (byWeek[w] || []).sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
+        const completedCount = content.reduce((acc, c) => acc + (isWeekContentDone(c.id) ? 1 : 0), 0);
+        const totalCount = content.length;
+        const pct = totalCount ? Math.round((completedCount / totalCount) * 100) : 0;
         const weekEl = document.createElement('div');
         weekEl.className = 'course-week' + (isCurrent ? ' course-week--current' : '') + (!unlocked ? ' course-week--locked' : '');
         weekEl.innerHTML = `
@@ -112,11 +147,22 @@
             ${!unlocked ? '<span class="course-week-badge">Locked</span>' : ''}
           </button>
           <div class="course-week-body" style="display: ${isCurrent ? 'block' : 'none'}">
-            ${unlocked ? content.map(c => `
-              <div class="week-content-item">
-                <a href="${c.url || '#'}" class="week-content-link">${c.title}</a>
+            ${unlocked ? `
+              <div class="week-progress-wrap" aria-live="polite">
+                <div class="week-progress-meta">
+                  <span>Progress</span>
+                  <span>${completedCount}/${totalCount} complete</span>
+                </div>
+                <div class="week-progress-track" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pct}" aria-label="Week ${w} progress">
+                  <span class="week-progress-fill" style="width:${pct}%"></span>
+                </div>
               </div>
-            `).join('') : ''}
+              ${content.map(c => `
+              <div class="week-content-item week-content-task-row ${isWeekContentDone(c.id) ? 'week-content-task-row--done' : ''}">
+                <input type="checkbox" class="week-content-check" data-content-id="${escapeHtml(c.id)}" ${isWeekContentDone(c.id) ? 'checked' : ''} aria-label="Mark ${escapeHtml(c.title)} complete" />
+                <a href="${c.url || '#'}" class="week-content-link">${escapeHtml(c.title)}</a>
+              </div>
+            `).join('')}` : ''}
           </div>
         `;
         const header = weekEl.querySelector('.course-week-header');
@@ -126,6 +172,13 @@
             const open = body.style.display === 'block';
             body.style.display = open ? 'none' : 'block';
             header.setAttribute('aria-expanded', !open);
+          });
+        }
+        if (unlocked) {
+          weekEl.querySelectorAll('.week-content-check').forEach((cb) => {
+            cb.addEventListener('change', (event) => {
+              toggleWeekContentTask(event.target.dataset.contentId, event.target.checked);
+            });
           });
         }
         weeksContainer.appendChild(weekEl);
@@ -171,6 +224,18 @@
       await client.from('user_todo_completions').delete().eq('user_id', user.id).eq('todo_template_id', id);
       delete completions[id];
     }
+    render();
+  }
+
+  function toggleWeekContentTask(contentId, completed) {
+    if (!contentId) return;
+    const id = String(contentId);
+    if (completed) {
+      weekTaskCompletions[id] = true;
+    } else {
+      delete weekTaskCompletions[id];
+    }
+    saveWeekTaskCompletions();
     render();
   }
 
