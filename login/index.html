@@ -52,18 +52,36 @@
   <script src="../js/supabase-config.js?v=20260428b"></script>
   <script src="../js/auth.js?v=20260428b"></script>
   <script>
+    function withTimeout(promise, ms) {
+      return Promise.race([
+        promise,
+        new Promise((_, reject) => setTimeout(() => reject(new Error('Login request timed out. Please try again.')), ms))
+      ]);
+    }
+
     document.getElementById('loginForm').addEventListener('submit', async (e) => {
       e.preventDefault();
       const err = document.getElementById('loginError');
+      const submitBtn = document.querySelector('#loginForm button[type="submit"]');
       err.textContent = '';
+      if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'Signing in...';
+      }
       const email = document.getElementById('email').value;
       const password = document.getElementById('password').value;
       const params = new URLSearchParams(location.search);
       const fallback = typeof window.ktrainPaths !== 'undefined' ? window.ktrainPaths.dashboard() : '../dashboard/';
-      const redirect = params.get('redirect') || fallback;
+      let redirect = params.get('redirect') || fallback;
       try {
         if (!window.ktrainAuth) throw new Error('Supabase not configured. Add your URL and anon key in js/supabase-config.js');
-        await window.ktrainAuth.signIn(email, password);
+        await withTimeout(window.ktrainAuth.signIn(email, password), 15000);
+        const session = await window.ktrainAuth.getSession();
+        const profile = session?.user?.id ? await window.ktrainAuth.getProfile(session.user.id) : null;
+        const isSuper = !!profile?.is_super_admin;
+        if (/\/admin\/?$/i.test(redirect) && !isSuper) {
+          redirect = fallback;
+        }
         window.location.href = redirect;
       } catch (x) {
         const msg = x?.message || 'Log in failed.';
@@ -75,6 +93,11 @@
           err.textContent = 'Please confirm your email address, then log in again.';
         } else {
           err.textContent = msg;
+        }
+      } finally {
+        if (submitBtn) {
+          submitBtn.disabled = false;
+          submitBtn.textContent = 'Log in';
         }
       }
     });
