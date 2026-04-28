@@ -108,7 +108,7 @@
   }
 
   async function init() {
-    const ok = await window.ktrainAdminGuard?.init({ superOnly: true });
+    const ok = await window.ktrainAdminGuard?.init({ superOnly: false });
     if (!ok) return;
     const client = getClient();
     if (!client) return;
@@ -117,7 +117,14 @@
     currentUserId = user.id;
     const viewer = await client.from('profiles').select('is_super_admin').eq('id', currentUserId).maybeSingle();
     viewerIsSuper = !!viewer?.data?.is_super_admin;
-    if (!viewerIsSuper) return;
+
+    if (!viewerIsSuper) {
+      const listRoot = document.getElementById('adminAccountListRoot');
+      const dirRoot = document.getElementById('adminUserDirectoryRoot');
+      if (listRoot) listRoot.innerHTML = '<p class="admin-placeholder">Role management is available to super admins.</p>';
+      if (dirRoot) dirRoot.innerHTML = '<p class="admin-placeholder">Role management is available to super admins.</p>';
+      return;
+    }
 
     try {
       await loadData();

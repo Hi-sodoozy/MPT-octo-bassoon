@@ -31,7 +31,10 @@
         ? await window.ktrainAuth.getProfile(user.id)
         : (await client.from('profiles').select('*').eq('id', user.id).single()).data;
       const isSuper = !!profile?.is_super_admin;
-      if (requireSuperOnly && !isSuper) {
+      const hasAdminAccess = window.ktrainAuth?.hasAdminAccess
+        ? window.ktrainAuth.hasAdminAccess(profile)
+        : (isSuper || (profile?.role === 'admin' && profile?.admin_access_enabled === true));
+      if ((requireSuperOnly && !isSuper) || (!requireSuperOnly && !hasAdminAccess)) {
         document.body.innerHTML = '<p>Access denied.</p><a href="' + redirectDenied + '">Back to dashboard</a>';
         return false;
       }

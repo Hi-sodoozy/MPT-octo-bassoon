@@ -27,10 +27,11 @@
   function applyAccessVisibility(profile) {
     const isSuper = !!profile?.is_super_admin;
     const isLoggedIn = !!profile;
+    const hasAdminAccess = !!(window.ktrainAuth && window.ktrainAuth.hasAdminAccess && profile && window.ktrainAuth.hasAdminAccess(profile));
     // Hide auth entry links once signed in.
     setLinkAccess(['login/', '../login/', '../../login/'], !isLoggedIn);
     setLinkAccess(['signup/', '../signup/', '../../signup/'], !isLoggedIn);
-    setLinkAccess(['admin/', '../admin/', '../../admin/'], isSuper);
+    setLinkAccess(['admin/', '../admin/', '../../admin/'], hasAdminAccess);
     setLinkAccess(['meq-course/', '../meq-course/', '../../meq-course/', 'course-admin/', '../course-admin/'], isSuper);
   }
 
