@@ -90,8 +90,12 @@
           err.textContent = 'This email is already registered. Please log in instead.';
         } else if (/password/i.test(msg)) {
           err.textContent = msg;
+        } else if (/database error saving new user/i.test(msg)) {
+          err.textContent = 'Sign up failed: database trigger/schema issue. In Supabase, run the latest schema + open-access migration, then retry.';
+        } else if (/invalid email/i.test(msg)) {
+          err.textContent = 'Please enter a valid email address.';
         } else {
-          err.textContent = 'Sign up failed. Please try again, or check your email for a confirmation link.';
+          err.textContent = 'Sign up failed: ' + msg;
         }
       }
     });
