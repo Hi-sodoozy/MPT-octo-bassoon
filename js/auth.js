@@ -101,6 +101,7 @@
       const normalizedEmail = String(email || '').trim().toLowerCase();
       const { data, error } = await client.auth.signInWithPassword({ email: normalizedEmail, password });
       if (error) throw normalizeNetworkError(error);
+      if (!data?.session) throw new Error('Login succeeded but no active session was returned. Confirm your email address, then try again.');
       return data;
     },
 

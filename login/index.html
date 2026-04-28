@@ -47,10 +47,10 @@
     <p class="link"><a href="../signup/">Don’t have an account? Sign up</a></p>
   </main>
 
-  <script src="../js/site-paths.js"></script>
+  <script src="../js/site-paths.js?v=20260428b"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="../js/supabase-config.js"></script>
-  <script src="../js/auth.js"></script>
+  <script src="../js/supabase-config.js?v=20260428b"></script>
+  <script src="../js/auth.js?v=20260428b"></script>
   <script>
     document.getElementById('loginForm').addEventListener('submit', async (e) => {
       e.preventDefault();
@@ -69,6 +69,10 @@
         const msg = x?.message || 'Log in failed.';
         if (/failed to fetch|network error reaching supabase/i.test(msg)) {
           err.textContent = 'Could not contact Supabase. Check internet/VPN/ad-blocker and ensure the site is opened via http(s), not file://.';
+        } else if (/invalid login credentials/i.test(msg)) {
+          err.textContent = 'Incorrect email or password.';
+        } else if (/email.*confirm|confirm.*email|no active session/i.test(msg)) {
+          err.textContent = 'Please confirm your email address, then log in again.';
         } else {
           err.textContent = msg;
         }
