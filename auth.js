@@ -24,9 +24,32 @@
     });
   }
 
-  function applyAccessVisibility() {
-    setLinkAccess(['admin/', '../admin/', '../../admin/'], true);
-    setLinkAccess(['meq-course/', '../meq-course/', '../../meq-course/', 'course-admin/', '../course-admin/'], true);
+  function applyAccessVisibility(profile) {
+    const isSuper = !!profile?.is_super_admin;
+    const isLoggedIn = !!profile;
+    const hasAdminAccess = !!(window.ktrainAuth && window.ktrainAuth.hasAdminAccess && profile && window.ktrainAuth.hasAdminAccess(profile));
+    // Hide auth entry links once signed in.
+    setLinkAccess(['login/', '../login/', '../../login/'], !isLoggedIn);
+    setLinkAccess(['signup/', '../signup/', '../../signup/'], !isLoggedIn);
+    setLinkAccess(['admin/', '../admin/', '../../admin/'], hasAdminAccess);
+    setLinkAccess(['meq-course/', '../meq-course/', '../../meq-course/', 'course-admin/', '../course-admin/'], isSuper);
+  }
+
+  function setupFooterLogout(session) {
+    const rows = document.querySelectorAll('.footer-account-row');
+    rows.forEach((row) => { row.hidden = !session?.user; });
+    document.querySelectorAll('.js-footer-logout').forEach((btn) => {
+      if (btn.dataset.boundLogout === '1') return;
+      btn.dataset.boundLogout = '1';
+      btn.addEventListener('click', async () => {
+        try {
+          await window.ktrainAuth.signOut();
+        } finally {
+          const login = typeof window.ktrainPaths !== 'undefined' ? window.ktrainPaths.login() : 'login/';
+          window.location.href = login;
+        }
+      });
+    });
   }
 
   window.ktrainAuth = {
@@ -89,7 +112,6 @@
           role: 'user'
         }, { onConflict: 'id' });
         if (upsertError) {
-          // Profile is normally created by DB trigger; do not fail signup on profile write.
           console.warn('Profile upsert skipped:', upsertError.message);
         }
       }
@@ -100,6 +122,7 @@
       const normalizedEmail = String(email || '').trim().toLowerCase();
       const { data, error } = await client.auth.signInWithPassword({ email: normalizedEmail, password });
       if (error) throw normalizeNetworkError(error);
+      if (!data?.session) throw new Error('Login succeeded but no active session was returned. Confirm your email address, then try again.');
       return data;
     },
 
@@ -114,6 +137,7 @@
 
   document.addEventListener('DOMContentLoaded', async () => {
     const { data: { session } } = await client.auth.getSession();
+    setupFooterLogout(session);
     if (!session?.user) {
       applyAccessVisibility(null);
       return;
@@ -123,6 +147,7 @@
   });
 
   client.auth.onAuthStateChange(async (_event, session) => {
+    setupFooterLogout(session);
     if (!session?.user) {
       applyAccessVisibility(null);
       return;
