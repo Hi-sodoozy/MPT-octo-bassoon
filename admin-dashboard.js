@@ -22,7 +22,7 @@
     if (!root) return;
     const admins = allProfiles.filter(hasAdminAccess);
     if (!admins.length) {
-      root.innerHTML = '<p class="admin-placeholder">No admins found.</p>';
+      root.innerHTML = '<p class="admin-placeholder">No admins yet.</p>';
       return;
     }
     root.innerHTML = `
@@ -55,7 +55,7 @@
       rows = rows.filter((p) => (p.full_name || '').toLowerCase().includes(query) || (p.email || '').toLowerCase().includes(query));
     }
     if (!rows.length) {
-      root.innerHTML = '<p class="admin-placeholder">No users match this search.</p>';
+      root.innerHTML = '<p class="admin-placeholder">No students/admins yet.</p>';
       return;
     }
     root.innerHTML = `
