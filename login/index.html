@@ -90,9 +90,15 @@
       const err = document.getElementById('loginError');
       const submitBtn = document.querySelector('#loginForm button[type="submit"]');
       err.textContent = '';
+      let uiWatchdog = null;
       if (submitBtn) {
         submitBtn.disabled = true;
         submitBtn.textContent = 'Signing in...';
+        uiWatchdog = setTimeout(() => {
+          submitBtn.disabled = false;
+          submitBtn.textContent = 'Log in';
+          if (!err.textContent) err.textContent = 'Login is taking too long. Please try again.';
+        }, 20000);
       }
       const email = document.getElementById('email').value;
       const password = document.getElementById('password').value;
@@ -105,13 +111,15 @@
           await withTimeout(window.ktrainAuth.signIn(email, password), 15000);
         } catch (sdkErr) {
           if (/timed out/i.test(sdkErr?.message || '')) {
-            await directRestLogin(String(email || '').trim().toLowerCase(), password);
+            await withTimeout(directRestLogin(String(email || '').trim().toLowerCase(), password), 12000);
           } else {
             throw sdkErr;
           }
         }
-        const session = await window.ktrainAuth.getSession();
-        const profile = session?.user?.id ? await window.ktrainAuth.getProfile(session.user.id) : null;
+        const session = await withTimeout(window.ktrainAuth.getSession(), 8000);
+        const profile = session?.user?.id
+          ? await withTimeout(window.ktrainAuth.getProfile(session.user.id), 8000)
+          : null;
         const isSuper = !!profile?.is_super_admin;
         if (/\/admin\/?$/i.test(redirect) && !isSuper) {
           redirect = fallback;
@@ -129,6 +137,7 @@
           err.textContent = msg;
         }
       } finally {
+        if (uiWatchdog) clearTimeout(uiWatchdog);
         if (submitBtn) {
           submitBtn.disabled = false;
           submitBtn.textContent = 'Log in';
