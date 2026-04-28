@@ -62,16 +62,17 @@
     },
 
     async signUp({ email, password, full_name, phone, college_id }) {
+      const normalizedEmail = String(email || '').trim().toLowerCase();
       const { data, error } = await client.auth.signUp({
-        email,
+        email: normalizedEmail,
         password,
         options: {
           data: { full_name, phone, college_id }
         }
       });
       if (error) throw error;
-      if (data.user) {
-        await client.from('profiles').upsert({
+      if (data.user && data.session) {
+        const { error: upsertError } = await client.from('profiles').upsert({
           id: data.user.id,
           full_name: full_name || data.user.user_metadata?.full_name,
           email: data.user.email,
@@ -79,6 +80,10 @@
           college_id: college_id || data.user.user_metadata?.college_id,
           role: 'user'
         }, { onConflict: 'id' });
+        if (upsertError) {
+          // Profile is normally created by DB trigger; do not fail signup on profile write.
+          console.warn('Profile upsert skipped:', upsertError.message);
+        }
       }
       return data;
     },
