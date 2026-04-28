@@ -57,6 +57,7 @@
               <td>
                 <select class="course-admin-input js-role-select" data-user-id="${escapeHtml(u.id)}">
                   <option value="user"${u.role === 'user' ? ' selected' : ''}>student</option>
+                  <option value="alumni"${u.role === 'alumni' ? ' selected' : ''}>alumni</option>
                   <option value="admin"${u.role === 'admin' ? ' selected' : ''}>admin</option>
                   <option value="super"${u.is_super_admin ? ' selected' : ''}>super admin</option>
                 </select>
@@ -84,6 +85,10 @@
       } else if (roleSelect?.value === 'admin') {
         patch.role = 'admin';
         patch.admin_access_enabled = true;
+        patch.is_super_admin = false;
+      } else if (roleSelect?.value === 'alumni') {
+        patch.role = 'alumni';
+        patch.admin_access_enabled = false;
         patch.is_super_admin = false;
       } else {
         patch.role = 'user';

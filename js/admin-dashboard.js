@@ -17,6 +17,13 @@
     return !!p?.is_super_admin || (p?.role === 'admin' && p?.admin_access_enabled === true);
   }
 
+  function roleLabel(p) {
+    if (p?.is_super_admin) return 'Super Admin';
+    if (p?.role === 'admin') return 'Admin';
+    if (p?.role === 'alumni') return 'Alumni';
+    return 'Student';
+  }
+
   function renderAdminList() {
     const root = document.getElementById('adminAccountListRoot');
     if (!root) return;
@@ -33,7 +40,7 @@
             <tr>
               <td>${escapeHtml(p.full_name || '—')}</td>
               <td>${escapeHtml(p.email || '—')}</td>
-              <td>${p.is_super_admin ? 'Super Admin' : 'Admin'}</td>
+              <td>${roleLabel(p)}</td>
               <td>${(!viewerIsSuper || p.id === currentUserId) ? '<span>Current user</span>' : `<button type="button" class="btn btn-secondary btn-small js-demote-admin" data-id="${escapeHtml(p.id)}">Demote</button>`}</td>
             </tr>
           `).join('')}
@@ -60,11 +67,12 @@
             <tr>
               <td>${escapeHtml(p.full_name || '—')}</td>
               <td>${escapeHtml(p.email || '—')}</td>
-              <td>${p.is_super_admin ? 'Super Admin' : (hasAdminAccess(p) ? 'Admin' : 'Student')}</td>
+              <td>${roleLabel(p)}</td>
               <td>
                 ${!viewerIsSuper ? '<span>Restricted</span>' : `
                   <select class="course-admin-input js-role-target" data-id="${escapeHtml(p.id)}">
-                    <option value="user"${!hasAdminAccess(p) ? ' selected' : ''}>Student</option>
+                    <option value="user"${(p.role !== 'admin' && p.role !== 'alumni' && !p.is_super_admin) ? ' selected' : ''}>Student</option>
+                    <option value="alumni"${p.role === 'alumni' ? ' selected' : ''}>Alumni</option>
                     <option value="admin"${(p.role === 'admin' && !p.is_super_admin) ? ' selected' : ''}>Admin</option>
                     <option value="super"${p.is_super_admin ? ' selected' : ''}>Super Admin</option>
                   </select>
@@ -81,6 +89,7 @@
   async function setRoleById(id, targetRole) {
     const client = getClient();
     let patch = { role: 'user', admin_access_enabled: false, is_super_admin: false };
+    if (targetRole === 'alumni') patch = { role: 'alumni', admin_access_enabled: false, is_super_admin: false };
     if (targetRole === 'admin') patch = { role: 'admin', admin_access_enabled: true, is_super_admin: false };
     if (targetRole === 'super') patch = { role: 'admin', admin_access_enabled: true, is_super_admin: true };
     const { error } = await client.from('profiles').update(patch).eq('id', id);
@@ -153,24 +162,6 @@
       }
     });
 
-    document.getElementById('adminInviteForm')?.addEventListener('submit', async (e) => {
-      e.preventDefault();
-      if (!viewerIsSuper) return;
-      const msg = document.getElementById('adminInviteMessage');
-      if (msg) msg.textContent = '';
-      const email = (document.getElementById('adminInviteEmail')?.value || '').trim().toLowerCase();
-      const user = allProfiles.find((p) => (p.email || '').toLowerCase() === email);
-      if (!user) {
-        if (msg) msg.textContent = 'No registered user found with that email.';
-        return;
-      }
-      try {
-        await setRoleById(user.id, 'admin');
-        if (msg) msg.textContent = 'Admin access granted.';
-      } catch (err) {
-        if (msg) msg.textContent = err.message || 'Invite failed.';
-      }
-    });
   }
 
   document.addEventListener('DOMContentLoaded', () => init().catch(console.error));
