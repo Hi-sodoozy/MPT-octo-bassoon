@@ -64,14 +64,11 @@
       }
       const email = document.getElementById('email').value;
       const password = document.getElementById('password').value;
-      const params = new URLSearchParams(location.search);
       const fallback = typeof window.ktrainPaths !== 'undefined' ? window.ktrainPaths.dashboard() : '../dashboard/';
-      let redirect = params.get('redirect') || fallback;
       try {
         if (!window.ktrainAuth) throw new Error('Supabase not configured. Add your URL and anon key in js/supabase-config.js');
         await window.ktrainAuth.signIn(String(email || '').trim().toLowerCase(), password);
-        if (/\/admin\/?$/i.test(redirect)) redirect = fallback;
-        window.location.href = redirect;
+        window.location.href = fallback;
       } catch (x) {
         const msg = x?.message || 'Log in failed.';
         if (/lock:sb-.*-auth-token|stole it/i.test(msg)) {
