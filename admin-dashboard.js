@@ -14,7 +14,7 @@
   let allProfiles = [];
 
   function hasAdminAccess(p) {
-    return !!p?.is_super_admin || (p?.role === 'admin' && p?.admin_access_enabled === true);
+    return p?.role === 'admin';
   }
 
   function renderAdminList() {
@@ -33,13 +33,11 @@
             <tr>
               <td>${escapeHtml(p.full_name || '—')}</td>
               <td>${escapeHtml(p.email || '—')}</td>
-              <td>${p.is_super_admin ? 'Super Admin' : 'Admin'}</td>
+              <td>Admin</td>
               <td>
-                ${p.is_super_admin
-                  ? '<span>Protected</span>'
-                  : (p.id === currentUserId
-                    ? '<span>Current user</span>'
-                    : `<button type="button" class="btn btn-secondary btn-small js-demote-admin" data-id="${escapeHtml(p.id)}">Demote to student</button>`)}
+                ${p.id === currentUserId
+                  ? '<span>Current user</span>'
+                  : `<button type="button" class="btn btn-secondary btn-small js-demote-admin" data-id="${escapeHtml(p.id)}">Demote to student</button>`}
               </td>
             </tr>
           `).join('')}
@@ -68,7 +66,7 @@
             <tr>
               <td>${escapeHtml(p.full_name || '—')}</td>
               <td>${escapeHtml(p.email || '—')}</td>
-              <td>${p.is_super_admin ? 'Super Admin' : (hasAdminAccess(p) ? 'Admin' : 'Student')}</td>
+              <td>${hasAdminAccess(p) ? 'Admin' : 'Student'}</td>
               <td>
                 ${hasAdminAccess(p)
                   ? '<span>Already admin</span>'
@@ -84,8 +82,7 @@
   async function promoteById(id) {
     const client = getClient();
     const { error } = await client.from('profiles').update({
-      role: 'admin',
-      admin_access_enabled: true
+      role: 'admin'
     }).eq('id', id);
     if (error) throw error;
     await loadData();
@@ -94,8 +91,7 @@
   async function demoteById(id) {
     const client = getClient();
     const { error } = await client.from('profiles').update({
-      role: 'user',
-      admin_access_enabled: false
+      role: 'user'
     }).eq('id', id);
     if (error) throw error;
     await loadData();
@@ -106,7 +102,7 @@
     if (!client) throw new Error('Supabase client is not available.');
     const { data, error } = await client
       .from('profiles')
-      .select('id, full_name, email, role, admin_access_enabled, is_super_admin')
+      .select('id, full_name, email, role')
       .order('full_name');
     if (error) throw error;
     allProfiles = data || [];
