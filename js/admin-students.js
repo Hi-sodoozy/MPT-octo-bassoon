@@ -16,18 +16,19 @@
       if (usersEl) usersEl.innerHTML = '<p class="course-admin-error">Configure Supabase in js/supabase-config.js</p>';
       return;
     }
-    const ok = await window.ktrainAdminGuard?.init();
+    const ok = await window.ktrainAdminGuard?.init({ superOnly: true });
     if (!ok) return;
     const { data: { user } } = await client.auth.getUser();
     const viewerRoleRes = user
-      ? await client.from('profiles').select('role').eq('id', user.id).maybeSingle()
+      ? await client.from('profiles').select('role, is_super_admin').eq('id', user.id).maybeSingle()
       : { data: null };
-    const viewerIsAdmin = viewerRoleRes?.data?.role === 'admin';
+    const viewerIsSuper = !!viewerRoleRes?.data?.is_super_admin;
+    if (!viewerIsSuper) return;
 
     let users = [];
     let enrolledIds = new Set();
     let startDateByUser = {};
-    const usersRes = await client.from('profiles').select('id, full_name, email, phone, college_id, role, exam_date').order('full_name');
+    const usersRes = await client.from('profiles').select('id, full_name, email, phone, college_id, role, exam_date, is_super_admin, admin_access_enabled').order('full_name');
     if (usersRes.error) throw usersRes.error;
     users = usersRes.data || [];
 
@@ -48,8 +49,8 @@
     }));
 
     if (!usersEl) return;
-    const admins = users.filter((u) => u.role === 'admin');
-    const students = users.filter((u) => u.role !== 'admin');
+    const admins = users.filter((u) => u.role === 'admin' || u.is_super_admin);
+    const students = users.filter((u) => !u.is_super_admin && u.role !== 'admin');
 
     usersEl.innerHTML = `
       <h3>Admins</h3>
@@ -61,7 +62,7 @@
               <tr>
                 <td>${escapeHtml(u.full_name || '—')}</td>
                 <td>${escapeHtml(u.email || '—')}</td>
-                <td>Admin</td>
+                <td>${u.is_super_admin ? 'Super Admin' : 'Admin'}</td>
               </tr>
             `).join('')}
           </tbody>
@@ -84,9 +85,10 @@
                   <button type="button" class="btn btn-secondary btn-small js-save-exam" data-user-id="${escapeHtml(u.id)}">Save</button>
                 </td>
                 <td>
-                  ${viewerIsAdmin ? `<select class="course-admin-input js-role-select" data-user-id="${escapeHtml(u.id)}">
+                  ${viewerIsSuper ? `<select class="course-admin-input js-role-select" data-user-id="${escapeHtml(u.id)}">
                     <option value="user"${u.role === 'user' ? ' selected' : ''}>student</option>
                     <option value="admin"${u.role === 'admin' ? ' selected' : ''}>admin</option>
+                    <option value="super"${u.is_super_admin ? ' selected' : ''}>super admin</option>
                   </select>` : 'Student'}
                 </td>
                 <td>${u.enrolled ? 'Yes' : 'No'}</td>
@@ -107,9 +109,23 @@
       const id = btn.getAttribute('data-user-id');
       if (!id) return;
       const patch = { exam_date };
-      if (viewerIsAdmin) {
+      if (viewerIsSuper) {
         const roleSelect = row.querySelector('.js-role-select');
-        if (roleSelect) patch.role = roleSelect.value;
+        if (roleSelect) {
+          if (roleSelect.value === 'super') {
+            patch.role = 'admin';
+            patch.admin_access_enabled = true;
+            patch.is_super_admin = true;
+          } else if (roleSelect.value === 'admin') {
+            patch.role = 'admin';
+            patch.admin_access_enabled = true;
+            patch.is_super_admin = false;
+          } else {
+            patch.role = 'user';
+            patch.admin_access_enabled = false;
+            patch.is_super_admin = false;
+          }
+        }
       }
       const prev = btn.textContent;
       btn.disabled = true;

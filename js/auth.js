@@ -24,9 +24,10 @@
     });
   }
 
-  function applyAccessVisibility() {
-    setLinkAccess(['admin/', '../admin/', '../../admin/'], true);
-    setLinkAccess(['meq-course/', '../meq-course/', '../../meq-course/', 'course-admin/', '../course-admin/'], true);
+  function applyAccessVisibility(profile) {
+    const isSuper = !!profile?.is_super_admin;
+    setLinkAccess(['admin/', '../admin/', '../../admin/'], isSuper);
+    setLinkAccess(['meq-course/', '../meq-course/', '../../meq-course/', 'course-admin/', '../course-admin/'], isSuper);
   }
 
   window.ktrainAuth = {

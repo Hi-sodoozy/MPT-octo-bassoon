@@ -4,6 +4,7 @@
   }
 
   let currentUserId = null;
+  let viewerIsSuper = false;
 
   function escapeHtml(s) {
     const div = document.createElement('div');
@@ -14,7 +15,7 @@
   let allProfiles = [];
 
   function hasAdminAccess(p) {
-    return p?.role === 'admin';
+    return !!p?.is_super_admin || p?.role === 'admin';
   }
 
   function renderAdminList() {
@@ -33,11 +34,11 @@
             <tr>
               <td>${escapeHtml(p.full_name || '—')}</td>
               <td>${escapeHtml(p.email || '—')}</td>
-              <td>Admin</td>
+              <td>${p.is_super_admin ? 'Super Admin' : 'Admin'}</td>
               <td>
-                ${p.id === currentUserId
+                ${(!viewerIsSuper || p.id === currentUserId)
                   ? '<span>Current user</span>'
-                  : `<button type="button" class="btn btn-secondary btn-small js-demote-admin" data-id="${escapeHtml(p.id)}">Demote to student</button>`}
+                  : `<button type="button" class="btn btn-secondary btn-small js-demote-admin" data-id="${escapeHtml(p.id)}">Demote</button>`}
               </td>
             </tr>
           `).join('')}
@@ -66,11 +67,16 @@
             <tr>
               <td>${escapeHtml(p.full_name || '—')}</td>
               <td>${escapeHtml(p.email || '—')}</td>
-              <td>${hasAdminAccess(p) ? 'Admin' : 'Student'}</td>
+              <td>${p.is_super_admin ? 'Super Admin' : (hasAdminAccess(p) ? 'Admin' : 'Student')}</td>
               <td>
-                ${hasAdminAccess(p)
-                  ? '<span>Already admin</span>'
-                  : `<button type="button" class="btn btn-secondary btn-small js-promote-admin" data-id="${escapeHtml(p.id)}">Promote to admin</button>`}
+                ${!viewerIsSuper
+                  ? '<span>Restricted</span>'
+                  : `<select class="course-admin-input js-role-target" data-id="${escapeHtml(p.id)}">
+                      <option value="user"${(!hasAdminAccess(p)) ? ' selected' : ''}>Student</option>
+                      <option value="admin"${(p.role === 'admin' && !p.is_super_admin) ? ' selected' : ''}>Admin</option>
+                      <option value="super"${p.is_super_admin ? ' selected' : ''}>Super Admin</option>
+                    </select>
+                    <button type="button" class="btn btn-secondary btn-small js-apply-role" data-id="${escapeHtml(p.id)}">Apply</button>`}
               </td>
             </tr>
           `).join('')}
@@ -79,20 +85,12 @@
     `;
   }
 
-  async function promoteById(id) {
+  async function setRoleById(id, targetRole) {
     const client = getClient();
-    const { error } = await client.from('profiles').update({
-      role: 'admin'
-    }).eq('id', id);
-    if (error) throw error;
-    await loadData();
-  }
-
-  async function demoteById(id) {
-    const client = getClient();
-    const { error } = await client.from('profiles').update({
-      role: 'user'
-    }).eq('id', id);
+    let patch = { role: 'user', admin_access_enabled: false, is_super_admin: false };
+    if (targetRole === 'admin') patch = { role: 'admin', admin_access_enabled: true, is_super_admin: false };
+    if (targetRole === 'super') patch = { role: 'admin', admin_access_enabled: true, is_super_admin: true };
+    const { error } = await client.from('profiles').update(patch).eq('id', id);
     if (error) throw error;
     await loadData();
   }
@@ -102,7 +100,7 @@
     if (!client) throw new Error('Supabase client is not available.');
     const { data, error } = await client
       .from('profiles')
-      .select('id, full_name, email, role')
+      .select('id, full_name, email, role, is_super_admin, admin_access_enabled')
       .order('full_name');
     if (error) throw error;
     allProfiles = data || [];
@@ -111,29 +109,17 @@
   }
 
   async function init() {
+    const ok = await window.ktrainAdminGuard?.init({ superOnly: true });
+    if (!ok) return;
     const client = getClient();
     if (!client) return;
     const { data: { user } } = await client.auth.getUser();
-    if (!user) {
-      const loginBase = typeof window.ktrainPaths !== 'undefined' ? window.ktrainPaths.login() : 'login/';
-      const target = window.location.pathname.endsWith('/') ? window.location.pathname : window.location.pathname + '/';
-      window.location.href = loginBase + '?redirect=' + encodeURIComponent(target);
-      return;
-    }
-
-    // Prefer shared guard, but unhide here as fallback in case guard script failed to load.
-    if (window.ktrainAdminGuard?.init) {
-      const ok = await window.ktrainAdminGuard.init();
-      if (!ok) return;
-    } else {
-      const root = document.getElementById('adminGuardRoot');
-      if (root) {
-        root.hidden = false;
-        root.removeAttribute('hidden');
-      }
-    }
+    if (!user) return;
 
     currentUserId = user?.id || null;
+    const viewer = await client.from('profiles').select('is_super_admin').eq('id', currentUserId).maybeSingle();
+    viewerIsSuper = !!viewer?.data?.is_super_admin;
+    if (!viewerIsSuper) return;
 
     try {
       await loadData();
@@ -150,13 +136,16 @@
     document.getElementById('adminUserSearch')?.addEventListener('input', renderUserDirectory);
 
     document.getElementById('adminUserDirectoryRoot')?.addEventListener('click', async (e) => {
-      const btn = e.target.closest('.js-promote-admin');
-      if (!btn) return;
+      const btn = e.target.closest('.js-apply-role');
+      if (!btn || !viewerIsSuper) return;
       btn.disabled = true;
       try {
-        await promoteById(btn.getAttribute('data-id'));
+        const row = btn.closest('tr');
+        const select = row?.querySelector('.js-role-target');
+        const targetRole = select?.value || 'user';
+        await setRoleById(btn.getAttribute('data-id'), targetRole);
       } catch (err) {
-        alert(err.message || 'Failed to promote user.');
+        alert(err.message || 'Failed to update role.');
       } finally {
         btn.disabled = false;
       }
@@ -164,13 +153,13 @@
 
     document.getElementById('adminAccountListRoot')?.addEventListener('click', async (e) => {
       const btn = e.target.closest('.js-demote-admin');
-      if (!btn) return;
+      if (!btn || !viewerIsSuper) return;
       const id = btn.getAttribute('data-id');
       if (!id || id === currentUserId) return;
-      if (!confirm('Demote this admin to student?')) return;
+      if (!confirm('Demote this account to student?')) return;
       btn.disabled = true;
       try {
-        await demoteById(id);
+        await setRoleById(id, 'user');
       } catch (err) {
         alert(err.message || 'Failed to demote admin.');
       } finally {
@@ -180,6 +169,7 @@
 
     document.getElementById('adminInviteForm')?.addEventListener('submit', async (e) => {
       e.preventDefault();
+      if (!viewerIsSuper) return;
       const msg = document.getElementById('adminInviteMessage');
       if (msg) msg.textContent = '';
       const email = (document.getElementById('adminInviteEmail')?.value || '').trim().toLowerCase();
@@ -188,12 +178,8 @@
         if (msg) msg.textContent = 'No registered user found with that email.';
         return;
       }
-      if (hasAdminAccess(user)) {
-        if (msg) msg.textContent = 'That user already has admin access.';
-        return;
-      }
       try {
-        await promoteById(user.id);
+        await setRoleById(user.id, 'admin');
         if (msg) msg.textContent = 'Admin access granted.';
       } catch (err) {
         if (msg) msg.textContent = err.message || 'Invite failed.';
