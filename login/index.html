@@ -64,14 +64,18 @@
       const base = (window.SUPABASE_URL || '').replace(/\/$/, '');
       const key = window.SUPABASE_ANON_KEY || '';
       if (!base || !key) throw new Error('Supabase config missing.');
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 12000);
       const res = await fetch(base + '/auth/v1/token?grant_type=password', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           apikey: key
         },
-        body: JSON.stringify({ email, password })
+        body: JSON.stringify({ email, password }),
+        signal: controller.signal
       });
+      clearTimeout(timer);
       const payload = await res.json().catch(() => ({}));
       if (!res.ok) {
         throw new Error(payload?.error_description || payload?.msg || payload?.error || 'Log in failed.');
@@ -99,7 +103,7 @@
           submitBtn.disabled = false;
           submitBtn.textContent = 'Log in';
           if (!err.textContent) err.textContent = 'Login is taking too long. Please try again.';
-        }, 20000);
+        }, 35000);
       }
       const email = document.getElementById('email').value;
       const password = document.getElementById('password').value;
@@ -108,12 +112,22 @@
       let redirect = params.get('redirect') || fallback;
       try {
         if (!window.ktrainAuth) throw new Error('Supabase not configured. Add your URL and anon key in js/supabase-config.js');
-        // Use direct REST auth (most reliable path for this deployment).
-        await withTimeout(
-          directRestLogin(String(email || '').trim().toLowerCase(), password),
-          45000,
-          'Login request timed out. Please try again.'
-        );
+        const normalizedEmail = String(email || '').trim().toLowerCase();
+        // Try direct REST auth first; if network-aborted, fallback to SDK.
+        try {
+          await directRestLogin(normalizedEmail, password);
+        } catch (restErr) {
+          const msg = restErr?.message || '';
+          if (/aborted|networkerror|failed to fetch|timed out/i.test(msg)) {
+            await withTimeout(
+              window.ktrainAuth.signIn(normalizedEmail, password),
+              12000,
+              'Login request timed out. Please try again.'
+            );
+          } else {
+            throw restErr;
+          }
+        }
         // Force non-staff login to student dashboard to avoid admin profile lookup stalls.
         if (/\/admin\/?$/i.test(redirect)) redirect = fallback;
         window.location.href = redirect;
