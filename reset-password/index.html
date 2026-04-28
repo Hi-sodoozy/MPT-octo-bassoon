@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en" data-site-root="..">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Set new password – My Psych Training</title>
+  <link rel="stylesheet" href="../styles-light.css" />
+  <style>
+    .auth-page { max-width: 420px; margin: 4rem auto; padding: 0 1.5rem; }
+    .auth-page h1 { font-size: 1.5rem; margin-bottom: 1rem; }
+    .auth-page .lead { color: var(--ink-muted); font-size: 0.95rem; margin-bottom: 1rem; }
+    .auth-form .form-row { margin-bottom: 1rem; }
+    .auth-form label { display: block; font-weight: 600; margin-bottom: 0.35rem; }
+    .auth-form input { width: 100%; padding: 0.6rem 0.75rem; border: 1px solid var(--border); border-radius: var(--radius); font-size: 1rem; }
+    .password-wrap { position: relative; }
+    .password-wrap input { padding-right: 2.5rem; }
+    .password-toggle { position: absolute; right: 0.45rem; top: 50%; transform: translateY(-50%); border: 0; background: transparent; cursor: pointer; font-size: 1rem; line-height: 1; }
+    .auth-form .btn { width: 100%; margin-top: 0.5rem; }
+    .auth-form .error { color: #c53030; font-size: 0.9rem; margin-top: 0.5rem; }
+    .auth-form .ok { color: #2f855a; font-size: 0.9rem; margin-top: 0.5rem; }
+    .auth-form .link { margin-top: 1rem; text-align: center; }
+  </style>
+</head>
+<body>
+  <header class="site-header">
+    <div class="site-header-inner">
+      <a href="../" class="brand"><div class="brand-mark"></div><span>My Psych Training</span></a>
+      <nav class="main-nav"><ul><li><a href="../login/" class="nav-cta">Back to log in</a></li></ul></nav>
+    </div>
+  </header>
+
+  <main class="auth-page">
+    <h1>Set a new password</h1>
+    <p class="lead">Choose a new password for your account.</p>
+    <form class="auth-form" id="resetForm">
+      <div class="form-row">
+        <label for="newPassword">New password</label>
+        <div class="password-wrap">
+          <input type="password" id="newPassword" name="newPassword" required minlength="6" autocomplete="new-password" />
+          <button type="button" class="password-toggle" data-target="newPassword" aria-label="Show password">👁</button>
+        </div>
+      </div>
+      <div class="form-row">
+        <label for="confirmPassword">Confirm new password</label>
+        <div class="password-wrap">
+          <input type="password" id="confirmPassword" name="confirmPassword" required minlength="6" autocomplete="new-password" />
+          <button type="button" class="password-toggle" data-target="confirmPassword" aria-label="Show password">👁</button>
+        </div>
+      </div>
+      <div id="resetError" class="error" role="alert"></div>
+      <div id="resetOk" class="ok" role="status"></div>
+      <button type="submit" class="btn">Update password</button>
+    </form>
+    <p class="link"><a href="../login/">Back to log in</a></p>
+  </main>
+
+  <script src="../js/site-paths.js?v=20260428d"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="../js/supabase-config.js?v=20260428d"></script>
+  <script src="../js/auth.js?v=20260428d"></script>
+  <script>
+    async function applyRecoverySession(client) {
+      const hash = window.location.hash.replace(/^#/, '');
+      const params = new URLSearchParams(hash);
+      const accessToken = params.get('access_token');
+      const refreshToken = params.get('refresh_token');
+      if (accessToken && refreshToken) {
+        const { error } = await client.auth.setSession({
+          access_token: accessToken,
+          refresh_token: refreshToken
+        });
+        if (error) throw error;
+      }
+    }
+
+    document.querySelectorAll('.password-toggle').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const input = document.getElementById(btn.getAttribute('data-target'));
+        if (!input) return;
+        const isVisible = input.type === 'text';
+        input.type = isVisible ? 'password' : 'text';
+        btn.setAttribute('aria-label', isVisible ? 'Show password' : 'Hide password');
+      });
+    });
+
+    document.getElementById('resetForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const err = document.getElementById('resetError');
+      const ok = document.getElementById('resetOk');
+      const btn = document.querySelector('#resetForm button[type="submit"]');
+      err.textContent = '';
+      ok.textContent = '';
+      const p1 = document.getElementById('newPassword').value;
+      const p2 = document.getElementById('confirmPassword').value;
+      if (p1 !== p2) {
+        err.textContent = 'Passwords do not match.';
+        return;
+      }
+      if (p1.length < 6) {
+        err.textContent = 'Password must be at least 6 characters.';
+        return;
+      }
+      btn.disabled = true;
+      btn.textContent = 'Updating...';
+      try {
+        const client = window.ktrainSupabase || window.ktrainAuth?.client;
+        if (!client) throw new Error('Supabase not configured.');
+        await applyRecoverySession(client);
+        const { data: { session } } = await client.auth.getSession();
+        if (!session) throw new Error('Reset link is missing or expired. Request a new password reset email.');
+        const { error } = await client.auth.updateUser({ password: p1 });
+        if (error) throw error;
+        ok.textContent = 'Password updated. Redirecting to log in...';
+        setTimeout(() => {
+          const login = (typeof window.ktrainPaths !== 'undefined' && window.ktrainPaths.login) ? window.ktrainPaths.login() : '../login/';
+          window.location.href = login;
+        }, 1500);
+      } catch (x) {
+        err.textContent = x?.message || 'Could not update password.';
+      } finally {
+        btn.disabled = false;
+        btn.textContent = 'Update password';
+      }
+    });
+  </script>
+</body>
+</html>

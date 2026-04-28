@@ -44,6 +44,7 @@
       <div id="loginError" class="error" role="alert"></div>
       <button type="submit" class="btn">Log in</button>
     </form>
+    <p class="link"><a href="../forgot-password/">Forgot password?</a></p>
     <p class="link"><a href="../signup/">Don’t have an account? Sign up</a></p>
   </main>
 
@@ -52,10 +53,10 @@
   <script src="../js/supabase-config.js?v=20260428b"></script>
   <script src="../js/auth.js?v=20260428b"></script>
   <script>
-    function withTimeout(promise, ms) {
+    function withTimeout(promise, ms, message) {
       return Promise.race([
         promise,
-        new Promise((_, reject) => setTimeout(() => reject(new Error('Login request timed out. Please try again.')), ms))
+        new Promise((_, reject) => setTimeout(() => reject(new Error(message || 'Login request timed out. Please try again.')), ms))
       ]);
     }
 
@@ -108,14 +109,20 @@
       try {
         if (!window.ktrainAuth) throw new Error('Supabase not configured. Add your URL and anon key in js/supabase-config.js');
         // Prefer direct REST auth to avoid browser SDK hang in this environment.
-        await withTimeout(directRestLogin(String(email || '').trim().toLowerCase(), password), 12000);
-        const session = await withTimeout(window.ktrainAuth.getSession(), 8000);
-        const profile = session?.user?.id
-          ? await withTimeout(window.ktrainAuth.getProfile(session.user.id), 8000)
-          : null;
-        const isSuper = !!profile?.is_super_admin;
-        if (/\/admin\/?$/i.test(redirect) && !isSuper) {
-          redirect = fallback;
+        await withTimeout(
+          directRestLogin(String(email || '').trim().toLowerCase(), password),
+          12000,
+          'Login request timed out. Please try again.'
+        );
+
+        // Only fetch profile when we need to decide admin-route permission.
+        if (/\/admin\/?$/i.test(redirect)) {
+          const session = await withTimeout(window.ktrainAuth.getSession(), 8000, 'Session fetch timed out. Please try again.');
+          const profile = session?.user?.id
+            ? await withTimeout(window.ktrainAuth.getProfile(session.user.id), 8000, 'Profile check timed out. Please try again.')
+            : null;
+          const isSuper = !!profile?.is_super_admin;
+          if (!isSuper) redirect = fallback;
         }
         window.location.href = redirect;
       } catch (x) {
