@@ -48,46 +48,47 @@
     <p class="link"><a href="../signup/">Don’t have an account? Sign up</a></p>
   </main>
 
-  <script src="../js/site-paths.js?v=20260428b"></script>
+  <script src="../js/site-paths.js?v=20260428e"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="../js/supabase-config.js?v=20260428b"></script>
-  <script src="../js/auth.js?v=20260428b"></script>
+  <script src="../js/supabase-config.js?v=20260428e"></script>
+  <script src="../js/auth.js?v=20260428e"></script>
   <script>
-    function withTimeout(promise, ms, message) {
-      return Promise.race([
-        promise,
-        new Promise((_, reject) => setTimeout(() => reject(new Error(message || 'Login request timed out. Please try again.')), ms))
-      ]);
-    }
-
     async function directRestLogin(email, password) {
       const base = (window.SUPABASE_URL || '').replace(/\/$/, '');
       const key = window.SUPABASE_ANON_KEY || '';
       if (!base || !key) throw new Error('Supabase config missing.');
       const controller = new AbortController();
       const timer = setTimeout(() => controller.abort(), 12000);
-      const res = await fetch(base + '/auth/v1/token?grant_type=password', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          apikey: key
-        },
-        body: JSON.stringify({ email, password }),
-        signal: controller.signal
-      });
-      clearTimeout(timer);
-      const payload = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        throw new Error(payload?.error_description || payload?.msg || payload?.error || 'Log in failed.');
+      try {
+        const res = await fetch(base + '/auth/v1/token?grant_type=password', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            apikey: key
+          },
+          body: JSON.stringify({ email, password }),
+          signal: controller.signal
+        });
+        const payload = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          throw new Error(payload?.error_description || payload?.msg || payload?.error || 'Log in failed.');
+        }
+        if (!payload?.access_token || !payload?.refresh_token || !window.ktrainAuth?.client?.auth?.setSession) {
+          throw new Error('Log in failed: invalid auth response.');
+        }
+        await window.ktrainAuth.client.auth.setSession({
+          access_token: payload.access_token,
+          refresh_token: payload.refresh_token
+        });
+        return payload;
+      } catch (e) {
+        if (e?.name === 'AbortError') {
+          throw new Error('Could not reach login service. Please check your connection and try again.');
+        }
+        throw e;
+      } finally {
+        clearTimeout(timer);
       }
-      if (!payload?.access_token || !payload?.refresh_token || !window.ktrainAuth?.client?.auth?.setSession) {
-        throw new Error('Log in failed: invalid auth response.');
-      }
-      await window.ktrainAuth.client.auth.setSession({
-        access_token: payload.access_token,
-        refresh_token: payload.refresh_token
-      });
-      return payload;
     }
 
     document.getElementById('loginForm').addEventListener('submit', async (e) => {
@@ -95,15 +96,9 @@
       const err = document.getElementById('loginError');
       const submitBtn = document.querySelector('#loginForm button[type="submit"]');
       err.textContent = '';
-      let uiWatchdog = null;
       if (submitBtn) {
         submitBtn.disabled = true;
         submitBtn.textContent = 'Signing in...';
-        uiWatchdog = setTimeout(() => {
-          submitBtn.disabled = false;
-          submitBtn.textContent = 'Log in';
-          if (!err.textContent) err.textContent = 'Login is taking too long. Please try again.';
-        }, 35000);
       }
       const email = document.getElementById('email').value;
       const password = document.getElementById('password').value;
@@ -113,22 +108,7 @@
       try {
         if (!window.ktrainAuth) throw new Error('Supabase not configured. Add your URL and anon key in js/supabase-config.js');
         const normalizedEmail = String(email || '').trim().toLowerCase();
-        // Try direct REST auth first; if network-aborted, fallback to SDK.
-        try {
-          await directRestLogin(normalizedEmail, password);
-        } catch (restErr) {
-          const msg = restErr?.message || '';
-          if (/aborted|networkerror|failed to fetch|timed out/i.test(msg)) {
-            await withTimeout(
-              window.ktrainAuth.signIn(normalizedEmail, password),
-              12000,
-              'Login request timed out. Please try again.'
-            );
-          } else {
-            throw restErr;
-          }
-        }
-        // Force non-staff login to student dashboard to avoid admin profile lookup stalls.
+        await directRestLogin(normalizedEmail, password);
         if (/\/admin\/?$/i.test(redirect)) redirect = fallback;
         window.location.href = redirect;
       } catch (x) {
@@ -137,15 +117,12 @@
           err.textContent = 'Could not contact Supabase. Check internet/VPN/ad-blocker and ensure the site is opened via http(s), not file://.';
         } else if (/invalid login credentials/i.test(msg)) {
           err.textContent = 'Incorrect email or password.';
-        } else if (/invalid auth response/i.test(msg)) {
-          err.textContent = 'Login failed while saving session. Please disable strict privacy blockers and try again.';
         } else if (/email.*confirm|confirm.*email|no active session/i.test(msg)) {
           err.textContent = 'Please confirm your email address, then log in again.';
         } else {
           err.textContent = msg;
         }
       } finally {
-        if (uiWatchdog) clearTimeout(uiWatchdog);
         if (submitBtn) {
           submitBtn.disabled = false;
           submitBtn.textContent = 'Log in';
