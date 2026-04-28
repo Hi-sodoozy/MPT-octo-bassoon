@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en" data-site-root="..">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Sign up – My Psych Training</title>
+  <link rel="stylesheet" href="../styles-light.css" />
+  <style>
+    .auth-page { max-width: 420px; margin: 4rem auto; padding: 0 1.5rem; }
+    .auth-page h1 { font-size: 1.5rem; margin-bottom: 1rem; }
+    .auth-form .form-row { margin-bottom: 1rem; }
+    .auth-form label { display: block; font-weight: 600; margin-bottom: 0.35rem; }
+    .auth-form input { width: 100%; padding: 0.6rem 0.75rem; border: 1px solid var(--border); border-radius: var(--radius); font-size: 1rem; }
+    .password-wrap { position: relative; }
+    .password-wrap input { padding-right: 2.5rem; }
+    .password-toggle { position: absolute; right: 0.45rem; top: 50%; transform: translateY(-50%); border: 0; background: transparent; cursor: pointer; font-size: 1rem; line-height: 1; }
+    .auth-form .btn { width: 100%; margin-top: 0.5rem; }
+    .auth-form .error { color: #c53030; font-size: 0.9rem; margin-top: 0.5rem; }
+    .auth-form .link { margin-top: 1rem; text-align: center; }
+  </style>
+</head>
+<body>
+  <header class="site-header">
+    <div class="site-header-inner">
+      <a href="../" class="brand"><div class="brand-mark"></div><span>My Psych Training</span></a>
+      <nav class="main-nav"><ul><li><a href="../">Home</a></li><li><a href="../meq/">MEQ Course</a></li><li><a href="../login/" class="nav-cta">Log in</a></li></ul></nav>
+    </div>
+  </header>
+
+  <main class="auth-page">
+    <h1>Sign up</h1>
+    <form class="auth-form" id="signupForm">
+      <div class="form-row">
+        <label for="full_name">Name</label>
+        <input type="text" id="full_name" name="full_name" required autocomplete="name" />
+      </div>
+      <div class="form-row">
+        <label for="email">Email</label>
+        <input type="email" id="email" name="email" required autocomplete="email" />
+      </div>
+      <div class="form-row">
+        <label for="phone">Phone number</label>
+        <input type="tel" id="phone" name="phone" required autocomplete="tel" />
+      </div>
+      <div class="form-row">
+        <label for="college_id">College ID</label>
+        <input type="text" id="college_id" name="college_id" required />
+      </div>
+      <div class="form-row">
+        <label for="password">Password</label>
+        <div class="password-wrap">
+          <input type="password" id="password" name="password" required autocomplete="new-password" minlength="6" />
+          <button type="button" class="password-toggle" data-target="password" aria-label="Show password">👁</button>
+        </div>
+      </div>
+      <div id="signupError" class="error" role="alert"></div>
+      <button type="submit" class="btn">Sign up</button>
+    </form>
+    <p class="link"><a href="../login/">Already have an account? Log in</a></p>
+  </main>
+
+  <script src="../js/site-paths.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="../js/supabase-config.js"></script>
+  <script src="../js/auth.js"></script>
+  <script>
+    document.getElementById('signupForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const err = document.getElementById('signupError');
+      err.textContent = '';
+      const payload = {
+        full_name: document.getElementById('full_name').value.trim(),
+        email: document.getElementById('email').value.trim(),
+        phone: document.getElementById('phone').value.trim(),
+        college_id: document.getElementById('college_id').value.trim(),
+        password: document.getElementById('password').value
+      };
+      try {
+        if (!window.ktrainAuth) throw new Error('Supabase not configured. Add your URL and anon key in js/supabase-config.js');
+        const result = await window.ktrainAuth.signUp(payload);
+        if (!result?.session) {
+          err.textContent = 'Check your email to confirm your account, then log in.';
+          return;
+        }
+        const dash = typeof window.ktrainPaths !== 'undefined' ? window.ktrainPaths.dashboard() : '../dashboard/';
+        window.location.href = dash;
+      } catch (x) {
+        err.textContent = x.message || 'Sign up failed.';
+      }
+    });
+
+    document.querySelectorAll('.password-toggle').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const input = document.getElementById(btn.getAttribute('data-target'));
+        if (!input) return;
+        const isVisible = input.type === 'text';
+        input.type = isVisible ? 'password' : 'text';
+        btn.setAttribute('aria-label', isVisible ? 'Show password' : 'Hide password');
+      });
+    });
+  </script>
+</body>
+</html>

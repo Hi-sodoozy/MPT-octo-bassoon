@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en" data-site-root="../..">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Students – Admin – My Psych Training</title>
+  <link rel="stylesheet" href="../../styles-light.css" />
+  <link rel="stylesheet" href="../../styles-dashboard.css" />
+</head>
+<body>
+  <header class="site-header">
+    <div class="site-header-inner">
+      <a href="../../" class="brand"><div class="brand-mark"></div><span>My Psych Training</span></a>
+      <nav class="main-nav">
+        <ul>
+          <li><a href="../../">Home</a></li>
+          <li><a href="../">Admin dashboard</a></li>
+          <li><a href="../../dashboard/">Student portal</a></li>
+        </ul>
+      </nav>
+    </div>
+  </header>
+
+  <main class="admin-layout">
+    <section class="admin-section">
+      <h2>Students</h2>
+      <p class="admin-section-hint">Set each student’s <strong>Exam date</strong> so their portal shows the correct day countdown.</p>
+      <div id="adminUsers">
+        <p>Loading…</p>
+      </div>
+    </section>
+  </main>
+
+  <script src="../../js/site-paths.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="../../js/supabase-config.js"></script>
+  <script src="../../js/auth.js"></script>
+  <script src="../../js/admin-guard.js"></script>
+  <script src="../../js/admin-students.js"></script>
+</body>
+</html>

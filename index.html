@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en" data-site-root="">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>My Psych Training – Psychiatry exam preparation</title>
+  <meta name="description" content="Focused MEQ aids and individual support to fast-track your psychiatry exam preparation." />
+  <link rel="stylesheet" href="styles-light.css" />
+</head>
+<body>
+  <header class="site-header">
+    <div class="site-header-inner">
+      <a href="./" class="brand">
+        <div class="brand-mark" aria-hidden="true"></div>
+        <span>My Psych Training</span>
+      </a>
+
+      <input type="checkbox" id="navToggle" class="nav-toggle-input" aria-label="Toggle menu" />
+      <label for="navToggle" class="nav-toggle" aria-hidden="true">
+        <span></span><span></span><span></span>
+      </label>
+
+      <nav class="main-nav">
+        <ul>
+          <li><a href="./">Home</a></li>
+          <li class="nav-has-submenu">
+            <a href="./#courses">Courses</a>
+            <ul class="nav-submenu">
+              <li><a href="meq/">MEQ Course</a></li>
+            </ul>
+          </li>
+          <li id="authNav">
+            <span id="authLoggedOut">
+              <a href="login/">Log in</a>
+              <a href="signup/" class="nav-cta">Sign up</a>
+            </span>
+            <span id="authLoggedIn" style="display: none;">
+              <span class="nav-user">Hi, <span id="headerUserName">—</span></span>
+              <a href="dashboard/" class="nav-cta">My portal</a>
+            </span>
+          </li>
+        </ul>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+    <section class="hero" id="hero">
+      <div class="shell">
+        <h1 class="hero-title">Feel prepared to take on the Psychiatry exams</h1>
+        <p class="hero-sub">Structured courses, focused materials, and individual support so you can sit your exams with confidence.</p>
+      </div>
+    </section>
+
+    <section class="courses-strip" id="courses">
+      <div class="shell">
+        <p>Courses</p>
+        <div class="course-links">
+          <a href="meq/" class="available">MEQ - 12 Weeks</a>
+          <a href="#" aria-disabled="true">MEQ - 8 Weeks</a>
+          <a href="#" aria-disabled="true">MEQ - 4 Weeks</a>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" id="focus">
+      <div class="shell">
+        <h2 class="section-title">Focused MEQ aids, individual support</h2>
+        <p class="section-sub">Fast-track your study with only the material you need.</p>
+        <div class="cards">
+          <div class="card highlight">
+            <div class="card-icon" aria-hidden="true">✓</div>
+            <h3 class="card-title">Over 80% success rate</h3>
+            <p class="card-desc">Our MEQ programme is designed around what works—learn from structured material and targeted practice.</p>
+          </div>
+          <div class="card">
+            <div class="card-icon" aria-hidden="true">1:1</div>
+            <h3 class="card-title">1-on-1: Tailored feedback</h3>
+            <p class="card-desc">Book tailored feedback sessions with an experienced tutor, or study independently with the same materials.</p>
+          </div>
+          <div class="card">
+            <div class="card-icon" aria-hidden="true">⏱</div>
+            <h3 class="card-title">Self-paced</h3>
+            <p class="card-desc">Study when it suits you with multiple content options—guides, practice questions, and study aids.</p>
+          </div>
+          <div class="card">
+            <div class="card-icon" aria-hidden="true">👥</div>
+            <h3 class="card-title">Groups</h3>
+            <p class="card-desc">Study group options are available so you can learn alongside peers and share the journey.</p>
+          </div>
+        </div>
+        <div class="cta-block" style="margin-top: 2.5rem;">
+          <h2 class="section-title">Ready to focus on the MEQ?</h2>
+          <p class="section-sub">Access study guides, practice exam questions, and audio and video aids in one place.</p>
+          <a href="meq/" class="btn">View MEQ course</a>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" style="background: var(--bg-alt); padding: 3rem 0;">
+      <div class="shell">
+        <h2 class="section-title">Why My Psych Training?</h2>
+        <p class="section-sub">Built for psychiatry trainees who want clarity and structure.</p>
+        <ul class="feature-list">
+          <li>Study guides aligned to the exam curriculum</li>
+          <li>Practice MEQ questions with model answers and feedback</li>
+          <li>Podcast and video study aids for revision on the go</li>
+          <li>Flexible format: 1-on-1 sessions, self-paced, or groups</li>
+          <li>Designed by clinicians who understand the exams</li>
+        </ul>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="site-footer-inner">
+      <span class="footer-brand">My Psych Training</span>
+      <ul class="footer-links">
+        <li><a href="./">Home</a></li>
+        <li><a href="meq/">MEQ Course</a></li>
+        <li><a href="#">Contact</a></li>
+        <li><a href="admin/">Admin Dashboard</a></li>
+        <li class="footer-course-admin"><a href="meq-course/">MEQ course content</a></li>
+      </ul>
+      <p class="footer-disclaimer">&copy; Katelyn Tadd <span class="js-current-year">2026</span>. Confidential and proprietary.  No copying, recording, distribution or use beyond the intended recipient / training without prior written permission. Provided for general education only (not medical, clinical, legal or financial advice), reliance is at the recipient's risk and, to the maximum extent permitted by law, no responsibility or liability is accepted for any loss arising from its use.</p>
+      <div id="footerAccountRow" class="footer-account-row" hidden>
+        <button type="button" id="footerLogoutBtn" class="footer-logout-btn">Log out</button>
+      </div>
+    </div>
+  </footer>
+
+  <script src="js/site-paths.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="js/supabase-config.js"></script>
+  <script src="js/auth.js"></script>
+  <script>
+    (function () {
+      function updateAuthUI(user, profile) {
+        const loggedOut = document.getElementById('authLoggedOut');
+        const loggedIn = document.getElementById('authLoggedIn');
+        const nameEl = document.getElementById('headerUserName');
+        const footerRow = document.getElementById('footerAccountRow');
+        if (!loggedOut || !loggedIn) return;
+        if (user) {
+          loggedOut.style.display = 'none';
+          loggedIn.style.display = 'inline';
+          if (nameEl) {
+            nameEl.textContent = profile && window.ktrainAuth.firstName
+              ? window.ktrainAuth.firstName(profile)
+              : (profile?.full_name || user.email || 'there');
+          }
+          if (footerRow) footerRow.hidden = false;
+        } else {
+          loggedOut.style.display = 'inline';
+          loggedIn.style.display = 'none';
+          if (footerRow) footerRow.hidden = true;
+        }
+      }
+      document.getElementById('footerLogoutBtn')?.addEventListener('click', async () => {
+        if (window.ktrainAuth) await window.ktrainAuth.signOut();
+        updateAuthUI(null, null);
+        window.location.reload();
+      });
+      if (window.ktrainAuth && window.ktrainAuth.client) {
+        window.ktrainAuth.getSession().then(async (session) => {
+          if (!session?.user) { updateAuthUI(null, null); return; }
+          const profile = await window.ktrainAuth.getProfile(session.user.id);
+          updateAuthUI(session.user, profile || null);
+        });
+      }
+    })();
+  </script>
+</body>
+</html>
