@@ -107,15 +107,8 @@
       let redirect = params.get('redirect') || fallback;
       try {
         if (!window.ktrainAuth) throw new Error('Supabase not configured. Add your URL and anon key in js/supabase-config.js');
-        try {
-          await withTimeout(window.ktrainAuth.signIn(email, password), 15000);
-        } catch (sdkErr) {
-          if (/timed out/i.test(sdkErr?.message || '')) {
-            await withTimeout(directRestLogin(String(email || '').trim().toLowerCase(), password), 12000);
-          } else {
-            throw sdkErr;
-          }
-        }
+        // Prefer direct REST auth to avoid browser SDK hang in this environment.
+        await withTimeout(directRestLogin(String(email || '').trim().toLowerCase(), password), 12000);
         const session = await withTimeout(window.ktrainAuth.getSession(), 8000);
         const profile = session?.user?.id
           ? await withTimeout(window.ktrainAuth.getProfile(session.user.id), 8000)
