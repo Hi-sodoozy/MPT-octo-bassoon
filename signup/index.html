@@ -94,6 +94,8 @@
           err.textContent = 'Sign up failed: database trigger/schema issue. In Supabase, run the latest schema + open-access migration, then retry.';
         } else if (/invalid email/i.test(msg)) {
           err.textContent = 'Please enter a valid email address.';
+        } else if (/failed to fetch|network error reaching supabase/i.test(msg)) {
+          err.textContent = 'Could not contact Supabase. Check internet/VPN/ad-blocker and ensure the site is opened via http(s), not file://.';
         } else {
           err.textContent = 'Sign up failed: ' + msg;
         }

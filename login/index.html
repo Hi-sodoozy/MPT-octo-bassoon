@@ -66,7 +66,12 @@
         await window.ktrainAuth.signIn(email, password);
         window.location.href = redirect;
       } catch (x) {
-        err.textContent = x.message || 'Log in failed.';
+        const msg = x?.message || 'Log in failed.';
+        if (/failed to fetch|network error reaching supabase/i.test(msg)) {
+          err.textContent = 'Could not contact Supabase. Check internet/VPN/ad-blocker and ensure the site is opened via http(s), not file://.';
+        } else {
+          err.textContent = msg;
+        }
       }
     });
 

@@ -7,6 +7,14 @@
   );
   if (!window.ktrainSupabase && client) window.ktrainSupabase = client;
 
+  function normalizeNetworkError(error) {
+    const msg = error?.message || '';
+    if (/failed to fetch/i.test(msg)) {
+      return new Error('Network error reaching Supabase. Check internet, ad-block/VPN/firewall, and that this site is served over http(s) (not file://).');
+    }
+    return error;
+  }
+
   function setLinkAccess(hrefs, visible) {
     hrefs.forEach((href) => {
       document.querySelectorAll('a[href="' + href + '"]').forEach((a) => {
@@ -70,7 +78,7 @@
           data: { full_name, phone, college_id }
         }
       });
-      if (error) throw error;
+      if (error) throw normalizeNetworkError(error);
       if (data.user && data.session) {
         const { error: upsertError } = await client.from('profiles').upsert({
           id: data.user.id,
@@ -91,7 +99,7 @@
     async signIn(email, password) {
       const normalizedEmail = String(email || '').trim().toLowerCase();
       const { data, error } = await client.auth.signInWithPassword({ email: normalizedEmail, password });
-      if (error) throw error;
+      if (error) throw normalizeNetworkError(error);
       return data;
     },
 
