@@ -64,7 +64,7 @@
       </ul>
       <p class="footer-disclaimer">&copy; Katelyn Tadd <span class="js-current-year">2026</span>. Confidential and proprietary.  No copying, recording, distribution or use beyond the intended recipient / training without prior written permission. Provided for general education only (not medical, clinical, legal or financial advice), reliance is at the recipient's risk and, to the maximum extent permitted by law, no responsibility or liability is accepted for any loss arising from its use.</p>
       <div class="footer-account-row">
-        <button type="button" id="dashboardFooterLogout" class="footer-logout-btn">Log out</button>
+        <button type="button" id="dashboardFooterLogout" class="footer-logout-btn js-footer-logout">Log out</button>
       </div>
     </div>
   </footer>
@@ -74,12 +74,5 @@
   <script src="../js/supabase-config.js"></script>
   <script src="../js/auth.js"></script>
   <script src="../js/dashboard.js"></script>
-  <script>
-    document.getElementById('dashboardFooterLogout')?.addEventListener('click', async () => {
-      if (window.ktrainAuth) await window.ktrainAuth.signOut();
-      const login = typeof window.ktrainPaths !== 'undefined' ? window.ktrainPaths.login() : '../login/';
-      window.location.href = login;
-    });
-  </script>
 </body>
 </html>

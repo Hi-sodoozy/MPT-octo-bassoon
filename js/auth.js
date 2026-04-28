@@ -30,6 +30,25 @@
     setLinkAccess(['meq-course/', '../meq-course/', '../../meq-course/', 'course-admin/', '../course-admin/'], isSuper);
   }
 
+  function setupFooterLogout(session) {
+    const rows = document.querySelectorAll('.footer-account-row');
+    rows.forEach((row) => {
+      row.hidden = !session?.user;
+    });
+    document.querySelectorAll('.js-footer-logout').forEach((btn) => {
+      if (btn.dataset.boundLogout === '1') return;
+      btn.dataset.boundLogout = '1';
+      btn.addEventListener('click', async () => {
+        try {
+          await window.ktrainAuth.signOut();
+        } finally {
+          const login = typeof window.ktrainPaths !== 'undefined' ? window.ktrainPaths.login() : 'login/';
+          window.location.href = login;
+        }
+      });
+    });
+  }
+
   window.ktrainAuth = {
     client,
 
@@ -116,6 +135,7 @@
 
   document.addEventListener('DOMContentLoaded', async () => {
     const { data: { session } } = await client.auth.getSession();
+    setupFooterLogout(session);
     if (!session?.user) {
       applyAccessVisibility(null);
       return;
@@ -125,6 +145,7 @@
   });
 
   client.auth.onAuthStateChange(async (_event, session) => {
+    setupFooterLogout(session);
     if (!session?.user) {
       applyAccessVisibility(null);
       return;

@@ -97,12 +97,6 @@
 
   document.getElementById('profileForm')?.addEventListener('submit', save);
 
-  document.getElementById('profileFooterLogout')?.addEventListener('click', async () => {
-    if (window.ktrainAuth) await window.ktrainAuth.signOut();
-    const login = typeof window.ktrainPaths !== 'undefined' ? window.ktrainPaths.login() : '../login/';
-    window.location.href = login;
-  });
-
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', () => load().catch(console.error));
   } else {
