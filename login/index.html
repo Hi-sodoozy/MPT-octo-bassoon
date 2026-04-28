@@ -59,6 +59,32 @@
       ]);
     }
 
+    async function directRestLogin(email, password) {
+      const base = (window.SUPABASE_URL || '').replace(/\/$/, '');
+      const key = window.SUPABASE_ANON_KEY || '';
+      if (!base || !key) throw new Error('Supabase config missing.');
+      const res = await fetch(base + '/auth/v1/token?grant_type=password', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          apikey: key
+        },
+        body: JSON.stringify({ email, password })
+      });
+      const payload = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(payload?.error_description || payload?.msg || payload?.error || 'Log in failed.');
+      }
+      if (!payload?.access_token || !payload?.refresh_token || !window.ktrainAuth?.client?.auth?.setSession) {
+        throw new Error('Log in failed: invalid auth response.');
+      }
+      await window.ktrainAuth.client.auth.setSession({
+        access_token: payload.access_token,
+        refresh_token: payload.refresh_token
+      });
+      return payload;
+    }
+
     document.getElementById('loginForm').addEventListener('submit', async (e) => {
       e.preventDefault();
       const err = document.getElementById('loginError');
@@ -75,7 +101,15 @@
       let redirect = params.get('redirect') || fallback;
       try {
         if (!window.ktrainAuth) throw new Error('Supabase not configured. Add your URL and anon key in js/supabase-config.js');
-        await withTimeout(window.ktrainAuth.signIn(email, password), 15000);
+        try {
+          await withTimeout(window.ktrainAuth.signIn(email, password), 15000);
+        } catch (sdkErr) {
+          if (/timed out/i.test(sdkErr?.message || '')) {
+            await directRestLogin(String(email || '').trim().toLowerCase(), password);
+          } else {
+            throw sdkErr;
+          }
+        }
         const session = await window.ktrainAuth.getSession();
         const profile = session?.user?.id ? await window.ktrainAuth.getProfile(session.user.id) : null;
         const isSuper = !!profile?.is_super_admin;
