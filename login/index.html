@@ -63,18 +63,11 @@
     </div>
   </footer>
 
-  <script src="../js/site-paths.js?v=20260429a"></script>
+  <script src="../js/site-paths.js?v=20260429b"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="../js/supabase-config.js?v=20260429a"></script>
-  <script src="../js/auth.js?v=20260429a"></script>
+  <script src="../js/supabase-config.js?v=20260429b"></script>
+  <script src="../js/auth.js?v=20260429b"></script>
   <script>
-    function withTimeout(promise, ms) {
-      return Promise.race([
-        promise,
-        new Promise((_, reject) => setTimeout(() => reject(new Error('Login is taking too long. Please try again.')), ms))
-      ]);
-    }
-
     document.getElementById('loginForm').addEventListener('submit', async (e) => {
       e.preventDefault();
       const err = document.getElementById('loginError');
@@ -89,7 +82,7 @@
       const dashboardUrl = typeof window.ktrainPaths !== 'undefined' ? window.ktrainPaths.dashboard() : '../dashboard/';
       try {
         if (!window.ktrainAuth) throw new Error('Supabase not configured. Add your URL and anon key in js/supabase-config.js');
-        await withTimeout(window.ktrainAuth.signIn(String(email || '').trim().toLowerCase(), password), 15000);
+        await window.ktrainAuth.signIn(String(email || '').trim().toLowerCase(), password);
         window.location.href = dashboardUrl;
       } catch (x) {
         const msg = x?.message || 'Log in failed.';

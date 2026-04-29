@@ -15,6 +15,47 @@
     return error;
   }
 
+  async function directPasswordSignIn(email, password) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 12000);
+    try {
+      const url = String(window.SUPABASE_URL || '').replace(/\/$/, '') + '/auth/v1/token?grant_type=password';
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          apikey: window.SUPABASE_ANON_KEY,
+          Authorization: 'Bearer ' + window.SUPABASE_ANON_KEY
+        },
+        body: JSON.stringify({ email, password }),
+        signal: controller.signal
+      });
+      const text = await res.text();
+      let body = {};
+      try { body = text ? JSON.parse(text) : {}; } catch (_) { body = {}; }
+      if (!res.ok) {
+        const msg = body?.msg || body?.message || 'Invalid login credentials';
+        throw new Error(msg);
+      }
+      if (!body?.access_token || !body?.refresh_token) {
+        throw new Error('Login succeeded but no active session was returned.');
+      }
+      const { data, error } = await client.auth.setSession({
+        access_token: body.access_token,
+        refresh_token: body.refresh_token
+      });
+      if (error) throw error;
+      return data;
+    } catch (error) {
+      if (error?.name === 'AbortError') {
+        throw new Error('Login is taking too long. Please try again.');
+      }
+      throw normalizeNetworkError(error);
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
   function setLinkAccess(hrefs, visible) {
     hrefs.forEach((href) => {
       document.querySelectorAll('a[href="' + href + '"]').forEach((a) => {
@@ -152,8 +193,7 @@
 
     async signIn(email, password) {
       const normalizedEmail = String(email || '').trim().toLowerCase();
-      const { data, error } = await client.auth.signInWithPassword({ email: normalizedEmail, password });
-      if (error) throw normalizeNetworkError(error);
+      const data = await directPasswordSignIn(normalizedEmail, password);
       if (!data?.session) throw new Error('Login succeeded but no active session was returned. Confirm your email address, then try again.');
       ensureProfileRow(data.user || data.session?.user).catch((x) => {
         console.warn('Profile bootstrap skipped:', x?.message || x);
