@@ -80,19 +80,10 @@
       const email = document.getElementById('email').value;
       const password = document.getElementById('password').value;
       const dashboardUrl = typeof window.ktrainPaths !== 'undefined' ? window.ktrainPaths.dashboard() : '../dashboard/';
-      const adminUrl = typeof window.ktrainPaths !== 'undefined' ? window.ktrainPaths.admin() : '../admin/';
       try {
         if (!window.ktrainAuth) throw new Error('Supabase not configured. Add your URL and anon key in js/supabase-config.js');
-        const authData = await window.ktrainAuth.signIn(String(email || '').trim().toLowerCase(), password);
-        const userId = authData?.user?.id || authData?.session?.user?.id;
-        let redirect = dashboardUrl;
-        if (userId) {
-          const profile = await window.ktrainAuth.getProfile(userId);
-          if (window.ktrainAuth.hasAdminAccess(profile)) {
-            redirect = adminUrl;
-          }
-        }
-        window.location.href = redirect;
+        await window.ktrainAuth.signIn(String(email || '').trim().toLowerCase(), password);
+        window.location.href = dashboardUrl;
       } catch (x) {
         const msg = x?.message || 'Log in failed.';
         if (/lock:sb-.*-auth-token|stole it/i.test(msg)) {
