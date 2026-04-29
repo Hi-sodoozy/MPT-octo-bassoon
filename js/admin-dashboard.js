@@ -6,6 +6,8 @@
   let currentUserId = null;
   let viewerIsSuper = false;
   let allProfiles = [];
+  let allCourses = [];
+  let allEnrollments = [];
 
   function escapeHtml(s) {
     const div = document.createElement('div');
@@ -100,11 +102,83 @@
   async function loadData() {
     const client = getClient();
     if (!client) throw new Error('Supabase client is not available.');
-    const { data, error } = await client.from('profiles').select('id, full_name, email, role, is_super_admin, admin_access_enabled').order('full_name');
-    if (error) throw error;
-    allProfiles = data || [];
+    const [profilesRes, coursesRes, enrollmentsRes] = await Promise.all([
+      client.from('profiles').select('id, full_name, email, phone, college_id, role, is_super_admin, admin_access_enabled').order('full_name'),
+      client.from('courses').select('id, title, slug, description, start_date, end_date, is_open').order('start_date', { ascending: true }),
+      client.from('enrollments').select('id, user_id, course_id, status, enrolled_at, profiles(full_name,email,phone,college_id), courses(title,slug)').order('enrolled_at', { ascending: false })
+    ]);
+    if (profilesRes.error) throw profilesRes.error;
+    if (coursesRes.error) throw coursesRes.error;
+    if (enrollmentsRes.error) throw enrollmentsRes.error;
+    allProfiles = profilesRes.data || [];
+    allCourses = coursesRes.data || [];
+    allEnrollments = enrollmentsRes.data || [];
     renderAdminList();
+    renderCourses();
+    renderEnrollments();
     renderUserDirectory();
+  }
+
+  function renderCourses() {
+    const root = document.getElementById('adminCourseRoot');
+    if (!root) return;
+    root.innerHTML = `
+      <div class="profile-form" style="max-width: 780px;">
+        <div class="profile-form-row"><label for="courseTitle">Title</label><input id="courseTitle" type="text" placeholder="e.g. MEQ Intensive 2026" /></div>
+        <div class="profile-form-row"><label for="courseSlug">Slug</label><input id="courseSlug" type="text" placeholder="e.g. meq-intensive-2026" /></div>
+        <div class="profile-form-row"><label for="courseDescription">Description</label><input id="courseDescription" type="text" placeholder="Short course summary" /></div>
+        <div class="profile-form-row"><label for="courseStart">Start date</label><input id="courseStart" type="date" /></div>
+        <div class="profile-form-row"><label for="courseEnd">End date</label><input id="courseEnd" type="date" /></div>
+        <div class="profile-form-row"><label><input id="courseOpen" type="checkbox" checked /> Open for registration</label></div>
+        <button type="button" class="btn btn-small js-create-course">Create course</button>
+      </div>
+      ${allCourses.length ? `
+        <table class="admin-table" style="margin-top:1rem;">
+          <thead><tr><th>Title</th><th>Slug</th><th>Dates</th><th>Open</th><th>Action</th></tr></thead>
+          <tbody>
+            ${allCourses.map((c) => `
+              <tr>
+                <td><input class="course-admin-input js-course-title" data-id="${escapeHtml(c.id)}" value="${escapeHtml(c.title || '')}" /></td>
+                <td><input class="course-admin-input js-course-slug" data-id="${escapeHtml(c.id)}" value="${escapeHtml(c.slug || '')}" /></td>
+                <td>
+                  <input type="date" class="course-admin-input js-course-start" data-id="${escapeHtml(c.id)}" value="${escapeHtml(c.start_date || '')}" />
+                  <input type="date" class="course-admin-input js-course-end" data-id="${escapeHtml(c.id)}" value="${escapeHtml(c.end_date || '')}" />
+                </td>
+                <td><input type="checkbox" class="js-course-open" data-id="${escapeHtml(c.id)}" ${c.is_open ? 'checked' : ''} /></td>
+                <td><button type="button" class="btn btn-secondary btn-small js-save-course" data-id="${escapeHtml(c.id)}">Save</button></td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      ` : '<p class="admin-placeholder">No courses yet.</p>'}
+    `;
+  }
+
+  function renderEnrollments() {
+    const root = document.getElementById('adminEnrollmentRoot');
+    if (!root) return;
+    if (!allEnrollments.length) {
+      root.innerHTML = '<p class="admin-placeholder">No enrollments yet.</p>';
+      return;
+    }
+    root.innerHTML = `
+      <table class="admin-table">
+        <thead><tr><th>Student</th><th>Email</th><th>Phone</th><th>College ID</th><th>Course</th><th>Status</th><th>Enrolled</th></tr></thead>
+        <tbody>
+          ${allEnrollments.map((e) => `
+            <tr>
+              <td>${escapeHtml(e.profiles?.full_name || '—')}</td>
+              <td>${escapeHtml(e.profiles?.email || '—')}</td>
+              <td>${escapeHtml(e.profiles?.phone || '—')}</td>
+              <td>${escapeHtml(e.profiles?.college_id || '—')}</td>
+              <td>${escapeHtml(e.courses?.title || e.course_id || '—')}</td>
+              <td>${escapeHtml(e.status || 'active')}</td>
+              <td>${escapeHtml((e.enrolled_at || '').slice(0, 10))}</td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+    `;
   }
 
   async function init() {
@@ -130,6 +204,49 @@
     }
 
     document.getElementById('adminUserSearch')?.addEventListener('input', renderUserDirectory);
+    document.getElementById('adminCourseRoot')?.addEventListener('click', async (e) => {
+      const client = getClient();
+      if (!client) return;
+      const createBtn = e.target.closest('.js-create-course');
+      if (createBtn) {
+        createBtn.disabled = true;
+        try {
+          const title = document.getElementById('courseTitle')?.value.trim();
+          const slug = document.getElementById('courseSlug')?.value.trim();
+          const description = document.getElementById('courseDescription')?.value.trim();
+          const start_date = document.getElementById('courseStart')?.value || null;
+          const end_date = document.getElementById('courseEnd')?.value || null;
+          const is_open = !!document.getElementById('courseOpen')?.checked;
+          if (!title || !slug) throw new Error('Course title and slug are required.');
+          const { error } = await client.from('courses').insert({ title, slug, description: description || null, start_date, end_date, is_open });
+          if (error) throw error;
+          await loadData();
+        } catch (err) {
+          alert(err?.message || 'Failed to create course.');
+        } finally {
+          createBtn.disabled = false;
+        }
+        return;
+      }
+      const saveBtn = e.target.closest('.js-save-course');
+      if (!saveBtn) return;
+      saveBtn.disabled = true;
+      try {
+        const id = saveBtn.getAttribute('data-id');
+        const title = document.querySelector('.js-course-title[data-id="' + id + '"]')?.value.trim();
+        const slug = document.querySelector('.js-course-slug[data-id="' + id + '"]')?.value.trim();
+        const start_date = document.querySelector('.js-course-start[data-id="' + id + '"]')?.value || null;
+        const end_date = document.querySelector('.js-course-end[data-id="' + id + '"]')?.value || null;
+        const is_open = !!document.querySelector('.js-course-open[data-id="' + id + '"]')?.checked;
+        const { error } = await client.from('courses').update({ title, slug, start_date, end_date, is_open }).eq('id', id);
+        if (error) throw error;
+        await loadData();
+      } catch (err) {
+        alert(err?.message || 'Failed to save course.');
+      } finally {
+        saveBtn.disabled = false;
+      }
+    });
     document.getElementById('adminUserDirectoryRoot')?.addEventListener('click', async (e) => {
       const btn = e.target.closest('.js-apply-role');
       if (!btn || !viewerIsSuper) return;

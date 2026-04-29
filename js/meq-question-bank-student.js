@@ -123,7 +123,6 @@
         return true;
       });
       listEl.innerHTML = rows.map((q, idx) => {
-        const stem = firstNonEmpty(q.stem, q.prompt_text);
         const done = hasAnswered(byQ[q.id]);
         const subtleTag = (q.tags && q.tags[0]) ? q.tags[0] : '';
         return `
@@ -133,7 +132,10 @@
               ${subtleTag ? `<span class="qb-student-tag-inline">${escapeHtml(subtleTag)}</span>` : ''}
               ${done ? '<span class="qb-student-tag-inline">Answered</span>' : ''}
             </div>
-            <div class="qb-student-stem">${escapeHtml(stem).replace(/\n/g, '<br />')}</div>
+            <details class="qb-model-details">
+              <summary>Question ${idx + 1}</summary>
+              <div class="qb-model-body">${escapeHtml(firstNonEmpty(q.stem, q.prompt_text)).replace(/\n/g, '<br />')}</div>
+            </details>
             ${(q.tags && q.tags.length) ? `
               <p class="qb-student-tags">
                 ${q.tags.map((t) => `<span class="qb-tag">${escapeHtml(t)}</span>`).join('')}
@@ -191,6 +193,7 @@
 
   async function renderQuestionDetail(root, user, question, savedText) {
     const stem = firstNonEmpty(question.stem, question.prompt_text);
+    const savedWords = (savedText || '').trim() ? (savedText || '').trim().split(/\s+/).length : 0;
     root.innerHTML = `
       <p><a href="${pathNoQuery()}">← Back to question bank</a></p>
       <article class="qb-student-card" data-id="${escapeAttr(question.id)}">
@@ -199,9 +202,16 @@
           ${(question.tags && question.tags[0]) ? `<span class="qb-student-tag-inline">${escapeHtml(question.tags[0])}</span>` : ''}
         </div>
         <div class="qb-student-stem">${escapeHtml(stem).replace(/\n/g, '<br />')}</div>
+        <div class="qb-practice-timer-wrap" style="align-items:flex-start; margin-bottom:0.75rem;">
+          <div class="qb-timer-line">
+            <div id="qbDetailTimer" class="qb-practice-timer">${formatTimer(DEFAULT_EXAM_SECONDS)}</div>
+            <button type="button" id="qbDetailTimerEdit" class="btn btn-secondary qb-timer-edit-btn">Edit</button>
+          </div>
+        </div>
         <label class="qb-admin-label">Your response</label>
-        <textarea class="qb-admin-textarea qb-response" rows="10" placeholder="Write your answer here…">${escapeHtml(savedText || '')}</textarea>
-        <button type="button" class="btn btn-small js-qb-save-response">Save response</button>
+        <textarea class="qb-admin-textarea qb-response" rows="10" maxlength="35000" placeholder="Write your answer here…">${escapeHtml(savedText || '')}</textarea>
+        <p class="sidebar-todo-empty" id="qbWordCount">${savedWords}/5000 words</p>
+        <button type="button" class="btn btn-small js-qb-save-response">Done!</button>
         ${question.model_answer ? `
           <details class="qb-model-details">
             <summary>Show model answer</summary>
@@ -210,6 +220,42 @@
         ` : ''}
       </article>
     `;
+
+    let baseSeconds = DEFAULT_EXAM_SECONDS;
+    let remaining = baseSeconds;
+    let ticker = null;
+    const timerEl = root.querySelector('#qbDetailTimer');
+    function paintTimer() { timerEl.textContent = formatTimer(remaining); }
+    root.querySelector('#qbDetailTimerEdit').addEventListener('click', () => {
+      const mins = window.prompt('Set timer length in minutes:', String(Math.round(baseSeconds / 60)));
+      if (mins == null) return;
+      const n = Number(mins);
+      if (!Number.isFinite(n) || n <= 0) return;
+      if (ticker) clearInterval(ticker);
+      baseSeconds = Math.round(n * 60);
+      remaining = baseSeconds;
+      paintTimer();
+      ticker = setInterval(() => {
+        remaining = Math.max(0, remaining - 1);
+        paintTimer();
+        if (remaining <= 0) clearInterval(ticker);
+      }, 1000);
+    });
+    paintTimer();
+
+    const responseBox = root.querySelector('.qb-response');
+    const wcEl = root.querySelector('#qbWordCount');
+    function paintWords() {
+      const text = responseBox.value || '';
+      const count = text.trim() ? text.trim().split(/\s+/).length : 0;
+      wcEl.textContent = `${Math.min(count, 5000)}/5000 words`;
+      if (count > 5000) {
+        const capped = text.split(/\s+/).slice(0, 5000).join(' ');
+        responseBox.value = capped;
+        wcEl.textContent = '5000/5000 words';
+      }
+    }
+    responseBox.addEventListener('input', paintWords);
 
     root.querySelector('.js-qb-save-response').addEventListener('click', async (e) => {
       const btn = e.target;

@@ -5,14 +5,13 @@
     return;
   }
 
-  const COURSE_ID = 'meq-12';
   const MS_PER_WEEK = 7 * 24 * 60 * 60 * 1000;
 
   let profile = null;
   let enrollment = null;
+  let enrolledCourse = null;
+  let availableCourses = [];
   let weekContent = [];
-  let todoTemplates = [];
-  let completions = {};
   let weekTaskCompletions = {};
   let currentUserId = null;
 
@@ -52,25 +51,45 @@
     currentUserId = user.id;
     loadWeekTaskCompletions();
 
-    const [profileRes, enrollRes, contentRes, todoRes, compRes] = await Promise.all([
+    const [profileRes, enrollRes, coursesRes] = await Promise.all([
       client.from('profiles').select('*').eq('id', user.id).single(),
-      client.from('enrollments').select('*').eq('user_id', user.id).eq('course_id', COURSE_ID).maybeSingle(),
-      client.from('week_content').select('*, course_weeks(week_number)').order('week_id').order('sort_order'),
-      client.from('todo_templates').select('*, course_weeks(week_number)').order('week_id').order('sort_order'),
-      client.from('user_todo_completions').select('todo_template_id').eq('user_id', user.id)
+      client.from('enrollments').select('*, courses(*)').eq('user_id', user.id).eq('status', 'active').order('enrolled_at', { ascending: false }).limit(1).maybeSingle(),
+      client.from('courses').select('*').eq('is_open', true).order('start_date', { ascending: true })
     ]);
 
     profile = profileRes.data || null;
     enrollment = enrollRes.data || null;
-    weekContent = contentRes.data || [];
-    todoTemplates = todoRes.data || [];
-    (compRes.data || []).forEach(r => { completions[r.todo_template_id] = true; });
+    enrolledCourse = enrollment?.courses || null;
+    availableCourses = coursesRes.data || [];
+
+    if (enrollment?.course_id) {
+      const { data: weeks } = await client.from('course_weeks').select('id,week_number').eq('course_id', enrollment.course_id);
+      const weekMap = {};
+      (weeks || []).forEach((w) => { weekMap[w.id] = w.week_number; });
+      const weekIds = Object.keys(weekMap);
+      if (weekIds.length) {
+        const { data: contentData } = await client
+          .from('week_content')
+          .select('id,title,url,sort_order,week_id')
+          .in('week_id', weekIds)
+          .order('week_id')
+          .order('sort_order');
+        weekContent = (contentData || []).map((c) => ({
+          ...c,
+          course_weeks: { week_number: weekMap[c.week_id] || 1 }
+        }));
+      } else {
+        weekContent = [];
+      }
+    } else {
+      weekContent = [];
+    }
 
     render();
   }
 
   function weekTaskStorageKey() {
-    return `mypsychtraining:week-content-completions:${COURSE_ID}:${currentUserId || 'anon'}`;
+    return `mypsychtraining:week-content-completions:${enrollment?.course_id || 'none'}:${currentUserId || 'anon'}`;
   }
 
   function loadWeekTaskCompletions() {
@@ -131,7 +150,39 @@
 
     const weeksContainer = document.getElementById('courseWeeks');
     if (weeksContainer) {
+      if (!enrollment) {
+        weeksContainer.innerHTML = `
+          <div class="course-week course-week--current">
+            <div class="course-week-body" style="display:block;">
+              <h3 style="margin-top:0;">You are not enrolled yet</h3>
+              <p class="sidebar-todo-empty">Register for an upcoming course to unlock your dashboard and weekly outline.</p>
+              ${availableCourses.length ? `
+                <table class="admin-table">
+                  <thead><tr><th>Course</th><th>Dates</th><th>Action</th></tr></thead>
+                  <tbody>
+                    ${availableCourses.map((c) => `
+                      <tr>
+                        <td>${escapeHtml(c.title || 'Untitled course')}</td>
+                        <td>${escapeHtml((c.start_date || 'TBC') + (c.end_date ? ' to ' + c.end_date : ''))}</td>
+                        <td><button type="button" class="btn btn-small js-register-course" data-id="${escapeHtml(c.id)}">Register</button></td>
+                      </tr>
+                    `).join('')}
+                  </tbody>
+                </table>
+              ` : '<p class="sidebar-todo-empty">No upcoming courses are open yet.</p>'}
+            </div>
+          </div>
+        `;
+        weeksContainer.querySelectorAll('.js-register-course').forEach((btn) => {
+          btn.addEventListener('click', () => registerCourse(btn.getAttribute('data-id')));
+        });
+        return;
+      }
       weeksContainer.innerHTML = '';
+      const titleEl = document.createElement('h3');
+      titleEl.textContent = enrolledCourse?.title ? `Enrolled: ${enrolledCourse.title}` : 'Your enrolled course';
+      titleEl.style.margin = '0 0 0.8rem';
+      weeksContainer.appendChild(titleEl);
       for (let w = 1; w <= 12; w++) {
         const unlocked = w <= currentWeek;
         const isCurrent = w === currentWeek;
@@ -187,23 +238,9 @@
 
     const todosContainer = document.getElementById('sidebarTodos');
     if (todosContainer) {
-      const todosForWeeks = todoTemplates.filter(t => (t.course_weeks?.week_number ?? 0) <= currentWeek);
-      todosContainer.innerHTML = todosForWeeks.length
-        ? todosForWeeks.map(t => {
-            const id = t.id;
-            const done = !!completions[id];
-            return `
-              <label class="sidebar-todo-item ${done ? 'sidebar-todo-item--done' : ''}">
-                <input type="checkbox" class="sidebar-todo-check" data-todo-id="${id}" ${done ? 'checked' : ''} />
-                <span class="sidebar-todo-tick"></span>
-                <span class="sidebar-todo-label">${escapeHtml(t.label)}</span>
-              </label>
-            `;
-          }).join('')
-        : '<p class="sidebar-todo-empty">No to-dos for this week yet.</p>';
-      todosContainer.querySelectorAll('.sidebar-todo-check').forEach(cb => {
-        cb.addEventListener('change', () => toggleTodo(cb.dataset.todoId, cb.checked));
-      });
+      todosContainer.innerHTML = enrollment
+        ? '<p class="sidebar-todo-empty">Use the week checklist above to track progress.</p>'
+        : '<p class="sidebar-todo-empty">Register for a course to unlock your weekly tasks.</p>';
     }
   }
 
@@ -213,17 +250,23 @@
     return div.innerHTML;
   }
 
-  async function toggleTodo(todoId, completed) {
-    const { data: { user } } = await client.auth.getUser();
-    if (!user) return;
-    const id = todoId;
-    if (completed) {
-      await client.from('user_todo_completions').upsert({ user_id: user.id, todo_template_id: id, completed_at: new Date().toISOString() }, { onConflict: 'user_id,todo_template_id' });
-      completions[id] = true;
-    } else {
-      await client.from('user_todo_completions').delete().eq('user_id', user.id).eq('todo_template_id', id);
-      delete completions[id];
+  async function registerCourse(courseId) {
+    if (!courseId || !currentUserId) return;
+    const { error } = await client.from('enrollments').insert({
+      user_id: currentUserId,
+      course_id: courseId,
+      status: 'active',
+      start_date: new Date().toISOString().slice(0, 10)
+    });
+    if (error) {
+      alert(error.message || 'Could not register for course.');
+      return;
     }
+    await load();
+  }
+
+  async function toggleTodo() {
+    // Legacy no-op, retained so older inline handlers don't break.
     render();
   }
 
