@@ -61,6 +61,26 @@
     });
   }
 
+  async function ensureProfileRow(user) {
+    if (!user?.id) return null;
+    const fallbackName = user.user_metadata?.full_name || null;
+    const fallbackPhone = user.user_metadata?.phone || null;
+    const fallbackCollege = user.user_metadata?.college_id || null;
+    const { data, error } = await client
+      .from('profiles')
+      .upsert({
+        id: user.id,
+        email: user.email || null,
+        full_name: fallbackName,
+        phone: fallbackPhone,
+        college_id: fallbackCollege
+      }, { onConflict: 'id' })
+      .select('*')
+      .single();
+    if (error) throw error;
+    return data;
+  }
+
   window.ktrainAuth = {
     client,
 
@@ -96,7 +116,10 @@
       if (full_name !== undefined) patch.full_name = full_name;
       if (phone !== undefined) patch.phone = phone;
       if (college_id !== undefined) patch.college_id = college_id;
-      const { data, error } = await client.from('profiles').update(patch).eq('id', userId).select().single();
+      const { data, error } = await client.from('profiles').upsert({
+        id: userId,
+        ...patch
+      }, { onConflict: 'id' }).select().single();
       if (error) throw error;
       return data;
     },
@@ -118,7 +141,7 @@
           email: data.user.email,
           phone: phone || data.user.user_metadata?.phone,
           college_id: college_id || data.user.user_metadata?.college_id,
-          role: 'user'
+          role: 'student'
         }, { onConflict: 'id' });
         if (upsertError) {
           console.warn('Profile upsert skipped:', upsertError.message);
@@ -132,6 +155,9 @@
       const { data, error } = await client.auth.signInWithPassword({ email: normalizedEmail, password });
       if (error) throw normalizeNetworkError(error);
       if (!data?.session) throw new Error('Login succeeded but no active session was returned. Confirm your email address, then try again.');
+      ensureProfileRow(data.user || data.session?.user).catch((x) => {
+        console.warn('Profile bootstrap skipped:', x?.message || x);
+      });
       return data;
     },
 
@@ -151,7 +177,14 @@
       applyAccessVisibility(null);
       return;
     }
-    const profile = await window.ktrainAuth.getProfile(session.user.id);
+    let profile = await window.ktrainAuth.getProfile(session.user.id);
+    if (!profile) {
+      try {
+        profile = await ensureProfileRow(session.user);
+      } catch (_) {
+        profile = null;
+      }
+    }
     applyAccessVisibility(profile);
   });
 
@@ -161,7 +194,14 @@
       applyAccessVisibility(null);
       return;
     }
-    const profile = await window.ktrainAuth.getProfile(session.user.id);
+    let profile = await window.ktrainAuth.getProfile(session.user.id);
+    if (!profile) {
+      try {
+        profile = await ensureProfileRow(session.user);
+      } catch (_) {
+        profile = null;
+      }
+    }
     applyAccessVisibility(profile);
   });
 })();
